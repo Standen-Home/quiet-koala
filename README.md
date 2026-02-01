@@ -43,16 +43,15 @@ python3 -m http.server 8000
 Settings are stored per-device using `localStorage`.
 
 ## Next steps (product roadmap)
-### 1) Replace placeholder icons
-Current `icons/icon-192.png` and `icons/icon-512.png` are placeholders.
-- Replace them with real 192×192 and 512×512 PNGs.
+### ✅ Icons
+`icons/icon-192.png` and `icons/icon-512.png` are now real PNGs (generated). Replace with branded artwork when ready.
 
-### 2) Character packs (SVG)
-Move characters into a folder like `characters/<pack>/<name>.svg` and load them dynamically.
-This will let you ship/sell themed character packs later.
+### ✅ Character packs (SVG)
+Characters now live under `characters/` and are loaded dynamically via `characters/index.json`.
+This lets you ship/sell themed packs later.
 
-### 3) Settings lock
-Add an optional teacher PIN (or “lock settings”) so students can’t recalibrate mid-lesson.
+### ✅ Settings lock
+Teacher “Lock settings” is implemented with an optional PIN so students can’t recalibrate mid-lesson.
 
 ### 4) Better audio model
 Right now we use RMS amplitude + smoothing.

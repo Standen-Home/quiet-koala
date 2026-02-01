@@ -1,0 +1,13 @@
+{
+  "packs": [
+    {
+      "id": "pack-default",
+      "name": "Default Pack",
+      "characters": [
+        { "id": "koala", "name": "Koala", "file": "characters/pack-default/koala.svg" },
+        { "id": "cat", "name": "Cat", "file": "characters/pack-default/cat.svg" },
+        { "id": "monster", "name": "Monster", "file": "characters/pack-default/monster.svg" }
+      ]
+    }
+  ]
+}

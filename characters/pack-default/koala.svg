@@ -1,0 +1,33 @@
+<svg viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Koala">
+  <defs>
+    <linearGradient id="gFur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d4d7e6"/>
+      <stop offset="1" stop-color="#aeb3cc"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="150" cy="150" rx="82" ry="72" fill="url(#gFur)"/>
+  <circle cx="150" cy="105" r="70" fill="url(#gFur)"/>
+  <circle cx="92" cy="72" r="28" fill="#c9cde0"/>
+  <circle cx="206" cy="72" r="28" fill="#c9cde0"/>
+  <circle cx="92" cy="72" r="16" fill="#b6bbd2"/>
+  <circle cx="206" cy="72" r="16" fill="#b6bbd2"/>
+
+  <g class="faceHappy">
+    <circle cx="126" cy="104" r="6" fill="#1f2937"/>
+    <circle cx="176" cy="104" r="6" fill="#1f2937"/>
+    <path d="M150 118c-10 0-18 8-18 18 0 7 6 12 18 12s18-5 18-12c0-10-8-18-18-18z" fill="#111827" opacity=".9"/>
+    <path d="M126 136c8 10 19 15 33 15 14 0 25-5 33-15" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".35"/>
+  </g>
+
+  <g class="faceWorried" style="opacity:0">
+    <circle cx="126" cy="104" r="6" fill="#1f2937"/>
+    <circle cx="176" cy="104" r="6" fill="#1f2937"/>
+    <path d="M150 118c-10 0-18 8-18 18 0 7 6 12 18 12s18-5 18-12c0-10-8-18-18-18z" fill="#111827" opacity=".9"/>
+    <path d="M124 146c10-10 20-14 26-14s16 4 26 14" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".35"/>
+    <path d="M114 92c10-8 18-10 28-10" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".25"/>
+    <path d="M186 92c-10-8-18-10-28-10" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".25"/>
+  </g>
+
+  <path d="M106 150c-18 10-28 26-30 48 16 6 30 1 42-10" fill="#c9cde0"/>
+  <path d="M194 150c18 10 28 26 30 48-16 6-30 1-42-10" fill="#c9cde0"/>
+</svg>

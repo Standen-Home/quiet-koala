@@ -8,7 +8,11 @@ const ASSETS = [
   './manifest.webmanifest',
   './service-worker.js',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './characters/index.json',
+  './characters/pack-default/koala.svg',
+  './characters/pack-default/cat.svg',
+  './characters/pack-default/monster.svg'
 ];
 
 self.addEventListener('install', (event) => {

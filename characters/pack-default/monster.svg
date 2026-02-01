@@ -1,0 +1,19 @@
+<svg viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Monster">
+  <defs>
+    <linearGradient id="gMon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a7f3d0"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+  <rect x="70" y="70" width="160" height="160" rx="46" fill="url(#gMon)"/>
+  <circle cx="125" cy="128" r="16" fill="#111827"/>
+  <circle cx="175" cy="128" r="16" fill="#111827"/>
+  <g class="faceHappy">
+    <path d="M115 170c12 14 24 20 40 20s28-6 40-20" fill="none" stroke="#111827" stroke-width="8" stroke-linecap="round" opacity=".35"/>
+  </g>
+  <g class="faceWorried" style="opacity:0">
+    <path d="M115 192c16-16 28-20 40-20s24 4 40 20" fill="none" stroke="#111827" stroke-width="8" stroke-linecap="round" opacity=".35"/>
+  </g>
+  <path d="M110 52l14 28h-28z" fill="#86efac"/>
+  <path d="M190 52l14 28h-28z" fill="#86efac"/>
+</svg>

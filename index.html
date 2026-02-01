@@ -156,16 +156,13 @@
         <div class="row">
           <button class="primary" id="btnStart">Start / Allow Microphone</button>
           <button id="btnFull">Full screen</button>
+          <button id="btnLock">Lock settings</button>
           <button class="danger" id="btnReset">Reset settings</button>
         </div>
 
         <div class="slider">
           <label for="charPick"><b>Character</b></label>
-          <select id="charPick" style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--stroke); background:rgba(255,255,255,.06); color:var(--text)">
-            <option value="koala">Koala</option>
-            <option value="cat">Cat</option>
-            <option value="monster">Monster</option>
-          </select>
+          <select id="charPick" style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--stroke); background:rgba(255,255,255,.06); color:var(--text)"></select>
           <div></div>
         </div>
         <div class="help">
@@ -239,88 +236,8 @@
               <circle cx="150" cy="86" r="32" fill="url(#gLeaf)" opacity=".85"/>
             </svg>
 
-            <!-- Characters (SVG packs) -->
-            <!-- All characters share the same positioning rules; we just toggle display. -->
-
-            <!-- Koala -->
-            <svg class="creatureSvg" data-char="koala" id="koala" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Koala">
-              <defs>
-                <linearGradient id="gFur" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#d4d7e6"/>
-                  <stop offset="1" stop-color="#aeb3cc"/>
-                </linearGradient>
-              </defs>
-              <ellipse cx="150" cy="150" rx="82" ry="72" fill="url(#gFur)"/>
-              <circle cx="150" cy="105" r="70" fill="url(#gFur)"/>
-              <circle cx="92" cy="72" r="28" fill="#c9cde0"/>
-              <circle cx="206" cy="72" r="28" fill="#c9cde0"/>
-              <circle cx="92" cy="72" r="16" fill="#b6bbd2"/>
-              <circle cx="206" cy="72" r="16" fill="#b6bbd2"/>
-
-              <g class="faceHappy">
-                <circle cx="126" cy="104" r="6" fill="#1f2937"/>
-                <circle cx="176" cy="104" r="6" fill="#1f2937"/>
-                <path d="M150 118c-10 0-18 8-18 18 0 7 6 12 18 12s18-5 18-12c0-10-8-18-18-18z" fill="#111827" opacity=".9"/>
-                <path d="M126 136c8 10 19 15 33 15 14 0 25-5 33-15" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".35"/>
-              </g>
-              <g class="faceWorried" style="opacity:0">
-                <circle cx="126" cy="104" r="6" fill="#1f2937"/>
-                <circle cx="176" cy="104" r="6" fill="#1f2937"/>
-                <path d="M150 118c-10 0-18 8-18 18 0 7 6 12 18 12s18-5 18-12c0-10-8-18-18-18z" fill="#111827" opacity=".9"/>
-                <path d="M124 146c10-10 20-14 26-14s16 4 26 14" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".35"/>
-                <path d="M114 92c10-8 18-10 28-10" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".25"/>
-                <path d="M186 92c-10-8-18-10-28-10" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".25"/>
-              </g>
-
-              <path d="M106 150c-18 10-28 26-30 48 16 6 30 1 42-10" fill="#c9cde0"/>
-              <path d="M194 150c18 10 28 26 30 48-16 6-30 1-42-10" fill="#c9cde0"/>
-            </svg>
-
-            <!-- Cat -->
-            <svg class="creatureSvg" data-char="cat" id="cat" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cat" style="display:none">
-              <defs>
-                <linearGradient id="gCat" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#fde68a"/>
-                  <stop offset="1" stop-color="#f59e0b"/>
-                </linearGradient>
-              </defs>
-              <circle cx="140" cy="130" r="78" fill="url(#gCat)"/>
-              <path d="M88 78l22 30-34 8z" fill="#fbbf24"/>
-              <path d="M192 78l-22 30 34 8z" fill="#fbbf24"/>
-              <circle cx="120" cy="124" r="7" fill="#111827"/>
-              <circle cx="164" cy="124" r="7" fill="#111827"/>
-              <path d="M142 134c-10 0-18 6-18 14 0 6 6 10 18 10s18-4 18-10c0-8-8-14-18-14z" fill="#111827" opacity=".9"/>
-
-              <g class="faceHappy">
-                <path d="M118 160c10 10 22 15 36 15s26-5 36-15" fill="none" stroke="#111827" stroke-width="6" stroke-linecap="round" opacity=".35"/>
-              </g>
-              <g class="faceWorried" style="opacity:0">
-                <path d="M118 176c12-12 24-16 36-16s24 4 36 16" fill="none" stroke="#111827" stroke-width="6" stroke-linecap="round" opacity=".35"/>
-                <path d="M110 112c10-8 18-10 28-10" fill="none" stroke="#111827" stroke-width="6" stroke-linecap="round" opacity=".22"/>
-                <path d="M176 112c-10-8-18-10-28-10" fill="none" stroke="#111827" stroke-width="6" stroke-linecap="round" opacity=".22"/>
-              </g>
-            </svg>
-
-            <!-- Monster -->
-            <svg class="creatureSvg" data-char="monster" id="monster" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Monster" style="display:none">
-              <defs>
-                <linearGradient id="gMon" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#a7f3d0"/>
-                  <stop offset="1" stop-color="#34d399"/>
-                </linearGradient>
-              </defs>
-              <rect x="70" y="70" width="160" height="160" rx="46" fill="url(#gMon)"/>
-              <circle cx="125" cy="128" r="16" fill="#111827"/>
-              <circle cx="175" cy="128" r="16" fill="#111827"/>
-              <g class="faceHappy">
-                <path d="M115 170c12 14 24 20 40 20s28-6 40-20" fill="none" stroke="#111827" stroke-width="8" stroke-linecap="round" opacity=".35"/>
-              </g>
-              <g class="faceWorried" style="opacity:0">
-                <path d="M115 192c16-16 28-20 40-20s24 4 40 20" fill="none" stroke="#111827" stroke-width="8" stroke-linecap="round" opacity=".35"/>
-              </g>
-              <path d="M110 52l14 28h-28z" fill="#86efac"/>
-              <path d="M190 52l14 28h-28z" fill="#86efac"/>
-            </svg>
+            <!-- Character (loaded from SVG packs) -->
+            <div id="creatureHost" style="position:absolute; top:50%; transform:translateY(-50%); right:-8%; width:56%; filter: drop-shadow(0 18px 30px rgba(0,0,0,.35)); transition: transform 120ms linear;"></div>
           </div>
         </div>
 
@@ -332,8 +249,8 @@
     </main>
 
     <footer>
-      Offline use: open <code>quiet-koala/index.html</code> in Chrome → Start → allow mic.
-      If Chrome blocks mic for local files, run a tiny local server (instructions in the message).
+      Offline use: open this via <code>http://localhost</code> or <code>https://</code> so the microphone works.
+      (Many browsers block mic access for <code>file://</code> pages.)
     </footer>
   </div>
 
@@ -350,10 +267,12 @@ if ('serviceWorker' in navigator) {
   const els = {
     btnStart: document.getElementById('btnStart'),
     btnFull: document.getElementById('btnFull'),
+    btnLock: document.getElementById('btnLock'),
     btnReset: document.getElementById('btnReset'),
     btnCalm: document.getElementById('btnCalm'),
     btnLoud: document.getElementById('btnLoud'),
     charPick: document.getElementById('charPick'),
+    creatureHost: document.getElementById('creatureHost'),
     statusBadge: document.getElementById('statusBadge'),
     vLoud: document.getElementById('vLoud'),
     vZone: document.getElementById('vZone'),
@@ -370,19 +289,64 @@ if ('serviceWorker' in navigator) {
     zoneText: document.getElementById('zoneText'),
   };
 
-  function currentCreature(){
-    return document.querySelector('.creatureSvg:not([style*="display:none"])');
-  }
+  let characterIndex = null; // loaded from characters/index.json
+  let currentChar = null; // {id,name,file}
 
-  function setCharacter(name){
-    document.querySelectorAll('.creatureSvg').forEach(svg => {
-      svg.style.display = (svg.getAttribute('data-char') === name) ? '' : 'none';
-    });
-    localStorage.setItem(STORE_KEY + '.character', name);
+  function currentCreature(){
+    return els.creatureHost?.querySelector('svg');
   }
 
   function getCharacter(){
-    return localStorage.getItem(STORE_KEY + '.character') || 'koala';
+    return localStorage.getItem(STORE_KEY + '.character') || 'pack-default:koala';
+  }
+
+  function setCharacter(key){
+    // key format: "packId:charId"
+    localStorage.setItem(STORE_KEY + '.character', key);
+    if(!characterIndex) return;
+
+    const [packId, charId] = key.split(':');
+    const pack = characterIndex.packs.find(p => p.id === packId) || characterIndex.packs[0];
+    const char = pack?.characters.find(c => c.id === charId) || pack?.characters[0];
+    currentChar = char;
+    loadCharacterSvg(char?.file);
+  }
+
+  async function loadCharacterIndex(){
+    const res = await fetch('./characters/index.json', { cache: 'no-store' });
+    if(!res.ok) throw new Error('Could not load characters/index.json');
+    characterIndex = await res.json();
+
+    // Populate picker (pack grouped)
+    els.charPick.innerHTML = '';
+    for(const pack of characterIndex.packs){
+      const og = document.createElement('optgroup');
+      og.label = pack.name;
+      for(const c of pack.characters){
+        const opt = document.createElement('option');
+        opt.value = `${pack.id}:${c.id}`;
+        opt.textContent = c.name;
+        og.appendChild(opt);
+      }
+      els.charPick.appendChild(og);
+    }
+  }
+
+  async function loadCharacterSvg(path){
+    if(!path || !els.creatureHost) return;
+    const res = await fetch('./' + path, { cache: 'no-store' });
+    if(!res.ok) throw new Error('Could not load character SVG');
+    const svgText = await res.text();
+    // We only load our own packaged SVGs.
+    els.creatureHost.innerHTML = svgText;
+
+    // Ensure SVG behaves like the old positioning rules.
+    const svg = currentCreature();
+    if(svg){
+      svg.style.width = '100%';
+      svg.style.height = 'auto';
+      svg.style.display = 'block';
+    }
   }
 
   const STORE_KEY = 'quietKoala.v1';
@@ -427,7 +391,13 @@ if ('serviceWorker' in navigator) {
     localStorage.setItem(STORE_KEY, JSON.stringify(s));
   }
   function resetSettings(){
+    if(isLocked()){
+      msg('Settings are locked. Unlock to reset.');
+      return;
+    }
     localStorage.removeItem(STORE_KEY);
+    localStorage.removeItem(STORE_KEY + '.character');
+    // Keep lock + pin settings intact.
     state.quiet = null;
     state.loud = null;
     state.alpha = 0.10;
@@ -440,6 +410,66 @@ if ('serviceWorker' in navigator) {
 
   function msg(t){
     els.calMsg.textContent = t;
+  }
+
+  // --- Settings lock (teacher mode) ---
+  function isLocked(){
+    return localStorage.getItem(STORE_KEY + '.locked') === '1';
+  }
+  function setLocked(v){
+    localStorage.setItem(STORE_KEY + '.locked', v ? '1' : '0');
+    applyLockState();
+  }
+  function hasPin(){
+    return !!localStorage.getItem(STORE_KEY + '.pinHash');
+  }
+  async function sha256Hex(text){
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async function setPinFlow(){
+    const pin = prompt('Set a teacher PIN (4+ digits). Keep it simple but not obvious.');
+    if(!pin) return false;
+    if(pin.length < 4){
+      alert('PIN must be at least 4 digits/characters.');
+      return false;
+    }
+    const hash = await sha256Hex(pin);
+    localStorage.setItem(STORE_KEY + '.pinHash', hash);
+    return true;
+  }
+  async function unlockFlow(){
+    const stored = localStorage.getItem(STORE_KEY + '.pinHash');
+    if(!stored){
+      // No pin set yet: allow unlocking.
+      setLocked(false);
+      return true;
+    }
+    const pin = prompt('Enter teacher PIN to unlock settings:');
+    if(pin == null) return false;
+    const hash = await sha256Hex(pin);
+    if(hash !== stored){
+      alert('Incorrect PIN.');
+      return false;
+    }
+    setLocked(false);
+    return true;
+  }
+  function applyLockState(){
+    const locked = isLocked();
+    if(!els.btnLock) return;
+    els.btnLock.textContent = locked ? 'Unlock settings' : 'Lock settings';
+
+    // Disable settings controls while locked
+    const disable = locked;
+    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.charPick, els.btnReset].forEach(el => {
+      if(el) el.disabled = disable;
+    });
+
+    if(locked){
+      msg('Settings locked (teacher mode).');
+    }
   }
 
   function applyUIFromState(){
@@ -561,6 +591,10 @@ if ('serviceWorker' in navigator) {
   }
 
   async function calibrate(kind, seconds){
+    if(isLocked()){
+      msg('Settings are locked. Unlock to calibrate.');
+      return;
+    }
     if(!state.audioCtx) await start();
     if(!state.analyser) return;
 
@@ -604,28 +638,55 @@ if ('serviceWorker' in navigator) {
   });
   els.btnReset.addEventListener('click', resetSettings);
 
+  els.btnLock.addEventListener('click', async () => {
+    if(isLocked()){
+      await unlockFlow();
+      applyLockState();
+      return;
+    }
+    if(!hasPin()){
+      const ok = await setPinFlow();
+      if(!ok) return;
+    }
+    setLocked(true);
+  });
+
   els.btnCalm.addEventListener('click', () => calibrate('QUIET', 10));
   els.btnLoud.addEventListener('click', () => calibrate('TOO LOUD', 5));
 
   els.sSmooth.addEventListener('input', () => {
+    if(isLocked()) return;
     state.alpha = parseFloat(els.sSmooth.value);
     els.tSmooth.textContent = state.alpha.toFixed(2);
     saveSettings();
   });
   els.sSensitivity.addEventListener('input', () => {
+    if(isLocked()) return;
     state.sensitivity = parseFloat(els.sSensitivity.value);
     els.tSensitivity.textContent = state.sensitivity.toFixed(1);
     saveSettings();
   });
 
-  // Character picker
-  els.charPick.value = getCharacter();
-  setCharacter(els.charPick.value);
-  els.charPick.addEventListener('change', () => setCharacter(els.charPick.value));
+  // Character picker (loaded from packs)
+  (async () => {
+    try{
+      await loadCharacterIndex();
+      els.charPick.value = getCharacter();
+      setCharacter(els.charPick.value);
+      els.charPick.addEventListener('change', () => {
+        if(isLocked()) return;
+        setCharacter(els.charPick.value);
+      });
+    }catch(e){
+      console.error(e);
+      msg('Could not load character packs.');
+    }
+  })();
 
   // Load
   loadSettings();
   applyUIFromState();
+  applyLockState();
 
   // Basic capability checks
   if(!navigator.mediaDevices?.getUserMedia){
