@@ -60,6 +60,9 @@
 
     .help{color:var(--muted); font-size:13px;}
 
+    .toggleRow{display:flex; gap:10px; align-items:center; font-size:13px; color:var(--muted);}
+    .toggleRow input{transform: translateY(1px);}
+
     .statGrid{display:grid; grid-template-columns: 1fr 1fr; gap:10px;}
     .stat{border:1px solid var(--stroke); border-radius:12px; padding:10px; background:rgba(0,0,0,.12)}
     .stat .k{color:var(--muted); font-size:12px;}
@@ -196,11 +199,17 @@
           <div class="stat"><div class="k">Zone</div><div class="v" id="vZone">—</div></div>
           <div class="stat"><div class="k">Quiet baseline</div><div class="v" id="vQuiet">—</div></div>
           <div class="stat"><div class="k">Too loud baseline</div><div class="v" id="vLoudBase">—</div></div>
+          <div class="stat" id="streakStat"><div class="k">Quiet streak</div><div class="v" id="vStreak">—</div></div>
         </div>
 
         <div class="row">
           <button id="btnCalm">Calibrate QUIET (10s)</button>
           <button id="btnLoud">Calibrate TOO LOUD (5s)</button>
+        </div>
+
+        <div class="toggleRow">
+          <input type="checkbox" id="chkStreak" />
+          <label for="chkStreak"><b>Show quiet streak reward</b> (10s in Green)</label>
         </div>
 
         <div class="slider">
@@ -306,6 +315,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     vZone: document.getElementById('vZone'),
     vQuiet: document.getElementById('vQuiet'),
     vLoudBase: document.getElementById('vLoudBase'),
+    streakStat: document.getElementById('streakStat'),
+    vStreak: document.getElementById('vStreak'),
+
+    chkStreak: document.getElementById('chkStreak'),
     sSmooth: document.getElementById('sSmooth'),
     tSmooth: document.getElementById('tSmooth'),
     sSensitivity: document.getElementById('sSensitivity'),
@@ -406,6 +419,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // derived thresholds (3 zones)
     greenSpan: 0.18,
     redSpan: 0.42,
+
+    // rewards
+    streakEnabled: true,
   };
 
   function loadSettings(){
@@ -417,10 +433,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
       if(typeof s.sensitivity === 'number') state.sensitivity = clamp(s.sensitivity, 0.5, 3.0);
       if(typeof s.quiet === 'number') state.quiet = s.quiet;
       if(typeof s.loud === 'number') state.loud = s.loud;
+      if(typeof s.streakEnabled === 'boolean') state.streakEnabled = s.streakEnabled;
     }catch(e){/* ignore */}
   }
   function saveSettings(){
-    const s = { alpha: state.alpha, sensitivity: state.sensitivity, quiet: state.quiet, loud: state.loud };
+    const s = { alpha: state.alpha, sensitivity: state.sensitivity, quiet: state.quiet, loud: state.loud, streakEnabled: !!state.streakEnabled };
     localStorage.setItem(STORE_KEY, JSON.stringify(s));
   }
   function resetSettings(){
@@ -496,7 +513,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     // Disable settings controls while locked
     const disable = locked;
-    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.charPick, els.btnReset].forEach(el => {
+    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.chkStreak, els.charPick, els.btnReset].forEach(el => {
       if(el) el.disabled = disable;
     });
 
@@ -512,6 +529,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     els.tSensitivity.textContent = state.sensitivity.toFixed(1);
     els.vQuiet.textContent = (state.quiet==null) ? '—' : state.quiet.toFixed(3);
     els.vLoudBase.textContent = (state.loud==null) ? '—' : state.loud.toFixed(3);
+    if(els.chkStreak) els.chkStreak.checked = !!state.streakEnabled;
+    if(els.streakStat) els.streakStat.style.display = state.streakEnabled ? '' : 'none';
   }
 
   async function start(){
@@ -608,12 +627,17 @@ window.addEventListener('beforeinstallprompt', (e) => {
   function updateCreature(level){
     const { zone, color, greenT, redT } = zoneFromLevel(level);
 
-    // Quiet streak: only counts while Green
+    // Quiet streak reward (optional)
+    if(!state.streakEnabled){
+      streakMs = 0;
+    }
     const now = performance.now();
     const dt = Math.min(250, now - lastTickAt);
     lastTickAt = now;
-    if(zone === 'Green') streakMs += dt;
-    else streakMs = 0;
+    if(state.streakEnabled){
+      if(zone === 'Green') streakMs += dt;
+      else streakMs = 0;
+    }
 
     // Map level to a progress (0..1) where 1 = fully out.
     const prog = clamp((redT - level) / (redT - greenT), 0, 1);
@@ -638,7 +662,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     els.zoneDot.style.background = color;
 
     const streakSec = Math.floor(streakMs / 1000);
-    const streakText = streakSec >= 10 ? ` • quiet streak ${streakSec}s` : '';
+    if(els.vStreak){
+      els.vStreak.textContent = state.streakEnabled ? (streakSec + "s") : "—";
+    }
+    const streakText = (state.streakEnabled && streakSec >= 10) ? ` • quiet streak ${streakSec}s` : '';
 
     els.zoneText.textContent = zone === 'Green' ? `Nice and quiet — your friend is happy${streakText}` :
                                zone === 'Amber' ? 'Getting loud — your friend is cautious' :
@@ -756,6 +783,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
     els.tSmooth.textContent = state.alpha.toFixed(2);
     saveSettings();
   });
+  els.chkStreak.addEventListener('change', () => {
+    if(isLocked()) { applyUIFromState(); return; }
+    state.streakEnabled = !!els.chkStreak.checked;
+    saveSettings();
+    applyUIFromState();
+  });
+
   els.sSensitivity.addEventListener('input', () => {
     if(isLocked()) return;
     state.sensitivity = parseFloat(els.sSensitivity.value);
