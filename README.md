@@ -35,12 +35,13 @@ python3 -m http.server 8000
 1. Click **Start / Allow Microphone**
 2. Click **Calibrate QUIET (10s)** (get your target “quiet working” level)
 3. Click **Calibrate TOO LOUD (5s)** (have students talk at your “too loud” level)
-4. Optionally adjust:
-   - **Smoothing** (how quickly it reacts to changes)
-   - **Sensitivity** (for different mic positions/rooms)
-5. Pick a character (Koala/Cat/Monster)
+4. Pick a character (from the pack dropdown)
+5. Optional:
+   - Adjust **Smoothing** and **Sensitivity**
+   - Click **Lock settings** (teacher PIN) so students can’t change thresholds
 
 Settings are stored per-device using `localStorage`.
+A “quiet streak” appears after 10 seconds continuously in the green zone.
 
 ## Next steps (product roadmap)
 ### ✅ Icons

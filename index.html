@@ -145,10 +145,30 @@
 </head>
 <body>
   <div class="wrap">
+    <div id="quickStart" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:50;">
+      <div style="max-width:720px; margin:6vh auto; background:rgba(18,26,51,.92); border:1px solid var(--stroke); border-radius:16px; padding:18px; box-shadow: 0 20px 60px rgba(0,0,0,.5);">
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
+          <div style="font-weight:800; font-size:18px;">Quick start (teacher)</div>
+          <button id="btnQSclose">Close</button>
+        </div>
+        <ol style="margin:12px 0 0 18px; color:var(--text)">
+          <li>Click <b>Start / Allow Microphone</b></li>
+          <li>Click <b>Calibrate QUIET</b> (10s)</li>
+          <li>Click <b>Calibrate TOO LOUD</b> (5s)</li>
+          <li>Pick a character</li>
+          <li>(Optional) click <b>Lock settings</b> so students can’t change it</li>
+        </ol>
+        <div style="margin-top:12px; color:var(--muted); font-size:13px;">
+          Note: microphone access needs <code>https://</code> or <code>http://localhost</code>.
+        </div>
+      </div>
+    </div>
     <header>
       <h1>Quiet Koala</h1>
       <span class="badge" id="statusBadge">Mic: not started</span>
-      <span class="badge" id="offlineBadge">Offline-ready: yes (single HTML file)</span>
+      <span class="badge" id="offlineBadge">Offline-ready: yes (PWA cache)</span>
+      <span class="badge" style="cursor:pointer" id="btnQuickStart">Quick start</span>
+      <span class="badge" style="cursor:pointer" id="btnInstall" title="Install this app">Install</span>
     </header>
 
     <main>
@@ -168,6 +188,7 @@
         <div class="help">
           Tip: first click <b>Start</b> to grant mic access. Then calibrate Quiet/Loud once per room setup.
           This uses a <b>smoothed</b> loudness reading for steady classroom noise.
+          <br/>Bonus: a “quiet streak” appears after 10 seconds in the green zone.
         </div>
 
         <div class="statGrid">
@@ -262,6 +283,13 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// PWA install prompt wiring
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+});
+
 
 (() => {
   const els = {
@@ -287,6 +315,11 @@ if ('serviceWorker' in navigator) {
     zoneLabel: document.getElementById('zoneLabel'),
     zoneDot: document.getElementById('zoneDot'),
     zoneText: document.getElementById('zoneText'),
+
+    quickStart: document.getElementById('quickStart'),
+    btnQSclose: document.getElementById('btnQSclose'),
+    btnQuickStart: document.getElementById('btnQuickStart'),
+    btnInstall: document.getElementById('btnInstall'),
   };
 
   let characterIndex = null; // loaded from characters/index.json
@@ -523,6 +556,8 @@ if ('serviceWorker' in navigator) {
     return clamp(rms * state.sensitivity, 0, 1);
   }
 
+  // Zone logic with hysteresis (reduces flicker)
+  let lastZone = 'Green';
   function zoneFromLevel(level){
     // If not calibrated, default thresholds.
     const quiet = (state.quiet==null) ? 0.030 : state.quiet;
@@ -532,29 +567,64 @@ if ('serviceWorker' in navigator) {
     const q = Math.min(quiet, loud);
     const l = Math.max(quiet, loud);
 
-    // Derive spans based on calibrated range.
+    // Derive thresholds based on calibrated range.
     const range = Math.max(0.03, (l - q));
-    const greenT = q + range * 0.35; // below this => green
-    const redT   = q + range * 0.75; // above this => red
+    const greenT = q + range * 0.35;
+    const redT   = q + range * 0.75;
 
-    if(level <= greenT) return { zone:'Green', color:'var(--good)', greenT, redT };
-    if(level >= redT) return { zone:'Red', color:'var(--bad)', greenT, redT };
-    return { zone:'Amber', color:'var(--warn)', greenT, redT };
+    // Hysteresis margins (as a fraction of range)
+    const hz = Math.max(0.004, range * 0.08);
+
+    // Compute candidate zone
+    let candidate;
+    if(level <= greenT) candidate = 'Green';
+    else if(level >= redT) candidate = 'Red';
+    else candidate = 'Amber';
+
+    // Apply hysteresis: require "extra evidence" to move away from current zone.
+    // Green -> Amber requires crossing greenT + hz
+    // Amber -> Green requires falling below greenT - hz
+    // Amber -> Red requires crossing redT + hz
+    // Red -> Amber requires falling below redT - hz
+    if(lastZone === 'Green'){
+      if(level > greenT + hz) lastZone = candidate; // likely Amber/Red
+    } else if(lastZone === 'Red'){
+      if(level < redT - hz) lastZone = candidate; // likely Amber/Green
+    } else { // Amber
+      if(level < greenT - hz) lastZone = 'Green';
+      else if(level > redT + hz) lastZone = 'Red';
+      else lastZone = 'Amber';
+    }
+
+    const zone = lastZone;
+    const color = zone === 'Green' ? 'var(--good)' : zone === 'Amber' ? 'var(--warn)' : 'var(--bad)';
+    return { zone, color, greenT, redT };
   }
+
+  // Quiet streak (optional, toggle later)
+  let streakMs = 0;
+  let lastTickAt = performance.now();
 
   function updateCreature(level){
     const { zone, color, greenT, redT } = zoneFromLevel(level);
+
+    // Quiet streak: only counts while Green
+    const now = performance.now();
+    const dt = Math.min(250, now - lastTickAt);
+    lastTickAt = now;
+    if(zone === 'Green') streakMs += dt;
+    else streakMs = 0;
 
     // Map level to a progress (0..1) where 1 = fully out.
     const prog = clamp((redT - level) / (redT - greenT), 0, 1);
 
     // Creature slides from behind the tree.
     const x = (1 - prog) * 22 + prog * (-30);
-    const creature = currentCreature();
-    if(creature){
-      creature.style.transform = `translateY(-50%) translateX(${x}%)`;
+    if(els.creatureHost){
+      els.creatureHost.style.transform = `translateY(-50%) translateX(${x}%)`;
     }
 
+    const creature = currentCreature();
     // Face swap based on zone.
     const happy = creature?.querySelector('.faceHappy');
     const worried = creature?.querySelector('.faceWorried');
@@ -566,7 +636,11 @@ if ('serviceWorker' in navigator) {
     // Labels
     els.vZone.textContent = zone;
     els.zoneDot.style.background = color;
-    els.zoneText.textContent = zone === 'Green' ? 'Nice and quiet — your friend is happy' :
+
+    const streakSec = Math.floor(streakMs / 1000);
+    const streakText = streakSec >= 10 ? ` • quiet streak ${streakSec}s` : '';
+
+    els.zoneText.textContent = zone === 'Green' ? `Nice and quiet — your friend is happy${streakText}` :
                                zone === 'Amber' ? 'Getting loud — your friend is cautious' :
                                'Too loud — your friend is hiding';
 
@@ -637,6 +711,28 @@ if ('serviceWorker' in navigator) {
     }
   });
   els.btnReset.addEventListener('click', resetSettings);
+
+  // Quick-start overlay
+  els.btnQuickStart.addEventListener('click', () => {
+    els.quickStart.style.display = 'block';
+  });
+  els.btnQSclose.addEventListener('click', () => {
+    els.quickStart.style.display = 'none';
+  });
+  els.quickStart.addEventListener('click', (e) => {
+    if(e.target === els.quickStart) els.quickStart.style.display = 'none';
+  });
+
+  // Install button (PWA)
+  els.btnInstall.addEventListener('click', async () => {
+    if(!deferredPrompt){
+      msg('Install not available yet. If you already installed it, great — otherwise try Chrome and ensure you are on https:// or localhost.');
+      return;
+    }
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+  });
 
   els.btnLock.addEventListener('click', async () => {
     if(isLocked()){
