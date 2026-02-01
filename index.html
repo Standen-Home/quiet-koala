@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiet Koala (Offline Classroom Noise Buddy)</title>
+  <meta name="theme-color" content="#0b1020" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a33;
+      --text:#e9ecff;
+      --muted:#a9b2e6;
+      --good:#2dd4bf;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      --stroke:rgba(255,255,255,.12);
+    }
+    html,body{height:100%;}
+    body{
+      margin:0; font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background:radial-gradient(1200px 700px at 20% 10%, rgba(45,212,191,.18), transparent 60%),
+                 radial-gradient(900px 600px at 80% 20%, rgba(251,191,36,.12), transparent 55%),
+                 radial-gradient(900px 600px at 60% 90%, rgba(251,113,133,.12), transparent 55%),
+                 var(--bg);
+      color:var(--text);
+      overflow:hidden;
+    }
+
+    .wrap{display:grid; grid-template-rows:auto 1fr auto; height:100%;}
+    header{padding:14px 16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--stroke); backdrop-filter: blur(6px);}
+    header h1{font-size:16px; margin:0; font-weight:650; letter-spacing:.2px;}
+    header .badge{font-size:12px; color:var(--muted); border:1px solid var(--stroke); padding:4px 8px; border-radius:999px;}
+
+    main{display:grid; grid-template-columns: 420px 1fr; gap:14px; padding:14px; min-height:0;}
+
+    .panel{
+      background:rgba(18,26,51,.65);
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      padding:14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    }
+
+    .controls{display:flex; flex-direction:column; gap:12px; min-height:0;}
+
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    button{
+      appearance:none; border:1px solid var(--stroke);
+      background:rgba(255,255,255,.06); color:var(--text);
+      padding:10px 12px; border-radius:12px;
+      font-weight:650; cursor:pointer;
+    }
+    button:hover{background:rgba(255,255,255,.10)}
+    button.primary{background:rgba(45,212,191,.16); border-color:rgba(45,212,191,.35)}
+    button.danger{background:rgba(251,113,133,.16); border-color:rgba(251,113,133,.35)}
+    button:disabled{opacity:.5; cursor:not-allowed}
+
+    .help{color:var(--muted); font-size:13px;}
+
+    .statGrid{display:grid; grid-template-columns: 1fr 1fr; gap:10px;}
+    .stat{border:1px solid var(--stroke); border-radius:12px; padding:10px; background:rgba(0,0,0,.12)}
+    .stat .k{color:var(--muted); font-size:12px;}
+    .stat .v{font-size:18px; font-weight:750; margin-top:2px;}
+
+    .slider{display:grid; grid-template-columns: 120px 1fr 60px; gap:10px; align-items:center;}
+    input[type=range]{width:100%}
+
+    .zones{display:grid; grid-template-columns:1fr; gap:10px;}
+    .zone{border:1px solid var(--stroke); border-radius:12px; padding:10px; background:rgba(0,0,0,.10)}
+    .zone strong{display:inline-block; min-width:80px}
+
+    .stage{
+      position:relative;
+      border-radius:16px;
+      border:1px solid var(--stroke);
+      overflow:hidden;
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      min-height:0;
+    }
+    .stageInner{position:absolute; inset:0; display:grid; place-items:center;}
+
+    .meter{
+      position:absolute; left:14px; right:14px; top:14px;
+      height:12px; border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid var(--stroke);
+      overflow:hidden;
+    }
+    .meter > .fill{height:100%; width:0%; background:linear-gradient(90deg, var(--good), var(--warn), var(--bad));}
+
+    .zoneLabel{
+      position:absolute; left:14px; bottom:14px;
+      display:flex; gap:10px; align-items:center;
+      padding:10px 12px; border-radius:999px;
+      background:rgba(0,0,0,.22);
+      border:1px solid var(--stroke);
+      color:var(--muted);
+      font-weight:650;
+    }
+    .dot{width:10px; height:10px; border-radius:50%}
+
+    /* Creature */
+    .creatureWrap{position:relative; width:min(520px, 78%); height:min(520px, 78%);} 
+    .creature{
+      position:absolute;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:100%; height:100%;
+    }
+
+    /* The koala starts hidden behind a "tree" on the right; it moves out as it gets quieter. */
+    #koala{
+      position:absolute;
+      top:50%;
+      transform:translateY(-50%);
+      right:-8%;
+      width:56%;
+      filter: drop-shadow(0 18px 30px rgba(0,0,0,.35));
+      transition: transform 120ms linear;
+    }
+
+    #tree{
+      position:absolute;
+      top:50%;
+      transform:translateY(-50%);
+      right:6%;
+      width:44%;
+      filter: drop-shadow(0 18px 30px rgba(0,0,0,.25));
+    }
+
+    #faceHappy{opacity:1}
+    #faceWorried{opacity:0}
+
+    footer{padding:10px 16px; border-top:1px solid var(--stroke); color:var(--muted); font-size:12px;}
+    footer code{color:var(--text)}
+
+    @media (max-width: 920px){
+      main{grid-template-columns:1fr;}
+      .creatureWrap{width:min(520px, 92%); height:min(520px, 55vh);} 
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Quiet Koala</h1>
+      <span class="badge" id="statusBadge">Mic: not started</span>
+      <span class="badge" id="offlineBadge">Offline-ready: yes (single HTML file)</span>
+    </header>
+
+    <main>
+      <section class="panel controls">
+        <div class="row">
+          <button class="primary" id="btnStart">Start / Allow Microphone</button>
+          <button id="btnFull">Full screen</button>
+          <button class="danger" id="btnReset">Reset settings</button>
+        </div>
+
+        <div class="slider">
+          <label for="charPick"><b>Character</b></label>
+          <select id="charPick" style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--stroke); background:rgba(255,255,255,.06); color:var(--text)">
+            <option value="koala">Koala</option>
+            <option value="cat">Cat</option>
+            <option value="monster">Monster</option>
+          </select>
+          <div></div>
+        </div>
+        <div class="help">
+          Tip: first click <b>Start</b> to grant mic access. Then calibrate Quiet/Loud once per room setup.
+          This uses a <b>smoothed</b> loudness reading for steady classroom noise.
+        </div>
+
+        <div class="statGrid">
+          <div class="stat"><div class="k">Smoothed loudness</div><div class="v" id="vLoud">—</div></div>
+          <div class="stat"><div class="k">Zone</div><div class="v" id="vZone">—</div></div>
+          <div class="stat"><div class="k">Quiet baseline</div><div class="v" id="vQuiet">—</div></div>
+          <div class="stat"><div class="k">Too loud baseline</div><div class="v" id="vLoudBase">—</div></div>
+        </div>
+
+        <div class="row">
+          <button id="btnCalm">Calibrate QUIET (10s)</button>
+          <button id="btnLoud">Calibrate TOO LOUD (5s)</button>
+        </div>
+
+        <div class="slider">
+          <label for="sSmooth"><b>Smoothing</b></label>
+          <input id="sSmooth" type="range" min="0.02" max="0.40" step="0.01" value="0.10" />
+          <div><span id="tSmooth">0.10</span></div>
+        </div>
+        <div class="slider">
+          <label for="sSensitivity"><b>Sensitivity</b></label>
+          <input id="sSensitivity" type="range" min="0.5" max="3.0" step="0.1" value="1.2" />
+          <div><span id="tSensitivity">1.2</span>x</div>
+        </div>
+
+        <div class="zones">
+          <div class="zone">
+            <div><strong>Green</strong> Koala comes out</div>
+            <div class="help">Below <code>quiet + greenSpan</code></div>
+          </div>
+          <div class="zone">
+            <div><strong>Amber</strong> Koala cautious</div>
+            <div class="help">Between green and red thresholds</div>
+          </div>
+          <div class="zone">
+            <div><strong>Red</strong> Koala hides</div>
+            <div class="help">Above <code>quiet + redSpan</code></div>
+          </div>
+        </div>
+
+        <div class="help" id="calMsg"></div>
+      </section>
+
+      <section class="stage panel" aria-label="Quiet Koala display">
+        <div class="meter" title="noise level">
+          <div class="fill" id="meterFill"></div>
+        </div>
+
+        <div class="stageInner">
+          <div class="creatureWrap">
+            <!-- Tree trunk -->
+            <svg id="tree" viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tree">
+              <defs>
+                <linearGradient id="gTrunk" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#9c6b3f"/>
+                  <stop offset="1" stop-color="#6f4a2d"/>
+                </linearGradient>
+                <linearGradient id="gLeaf" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#34d399"/>
+                  <stop offset="1" stop-color="#16a34a"/>
+                </linearGradient>
+              </defs>
+              <rect x="78" y="40" width="66" height="230" rx="26" fill="url(#gTrunk)"/>
+              <circle cx="110" cy="54" r="44" fill="url(#gLeaf)" opacity=".95"/>
+              <circle cx="74" cy="78" r="34" fill="url(#gLeaf)" opacity=".85"/>
+              <circle cx="150" cy="86" r="32" fill="url(#gLeaf)" opacity=".85"/>
+            </svg>
+
+            <!-- Characters (SVG packs) -->
+            <!-- All characters share the same positioning rules; we just toggle display. -->
+
+            <!-- Koala -->
+            <svg class="creatureSvg" data-char="koala" id="koala" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Koala">
+              <defs>
+                <linearGradient id="gFur" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#d4d7e6"/>
+                  <stop offset="1" stop-color="#aeb3cc"/>
+                </linearGradient>
+              </defs>
+              <ellipse cx="150" cy="150" rx="82" ry="72" fill="url(#gFur)"/>
+              <circle cx="150" cy="105" r="70" fill="url(#gFur)"/>
+              <circle cx="92" cy="72" r="28" fill="#c9cde0"/>
+              <circle cx="206" cy="72" r="28" fill="#c9cde0"/>
+              <circle cx="92" cy="72" r="16" fill="#b6bbd2"/>
+              <circle cx="206" cy="72" r="16" fill="#b6bbd2"/>
+
+              <g class="faceHappy">
+                <circle cx="126" cy="104" r="6" fill="#1f2937"/>
+                <circle cx="176" cy="104" r="6" fill="#1f2937"/>
+                <path d="M150 118c-10 0-18 8-18 18 0 7 6 12 18 12s18-5 18-12c0-10-8-18-18-18z" fill="#111827" opacity=".9"/>
+                <path d="M126 136c8 10 19 15 33 15 14 0 25-5 33-15" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".35"/>
+              </g>
+              <g class="faceWorried" style="opacity:0">
+                <circle cx="126" cy="104" r="6" fill="#1f2937"/>
+                <circle cx="176" cy="104" r="6" fill="#1f2937"/>
+                <path d="M150 118c-10 0-18 8-18 18 0 7 6 12 18 12s18-5 18-12c0-10-8-18-18-18z" fill="#111827" opacity=".9"/>
+                <path d="M124 146c10-10 20-14 26-14s16 4 26 14" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".35"/>
+                <path d="M114 92c10-8 18-10 28-10" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".25"/>
+                <path d="M186 92c-10-8-18-10-28-10" fill="none" stroke="#1f2937" stroke-width="6" stroke-linecap="round" opacity=".25"/>
+              </g>
+
+              <path d="M106 150c-18 10-28 26-30 48 16 6 30 1 42-10" fill="#c9cde0"/>
+              <path d="M194 150c18 10 28 26 30 48-16 6-30 1-42-10" fill="#c9cde0"/>
+            </svg>
+
+            <!-- Cat -->
+            <svg class="creatureSvg" data-char="cat" id="cat" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cat" style="display:none">
+              <defs>
+                <linearGradient id="gCat" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#fde68a"/>
+                  <stop offset="1" stop-color="#f59e0b"/>
+                </linearGradient>
+              </defs>
+              <circle cx="140" cy="130" r="78" fill="url(#gCat)"/>
+              <path d="M88 78l22 30-34 8z" fill="#fbbf24"/>
+              <path d="M192 78l-22 30 34 8z" fill="#fbbf24"/>
+              <circle cx="120" cy="124" r="7" fill="#111827"/>
+              <circle cx="164" cy="124" r="7" fill="#111827"/>
+              <path d="M142 134c-10 0-18 6-18 14 0 6 6 10 18 10s18-4 18-10c0-8-8-14-18-14z" fill="#111827" opacity=".9"/>
+
+              <g class="faceHappy">
+                <path d="M118 160c10 10 22 15 36 15s26-5 36-15" fill="none" stroke="#111827" stroke-width="6" stroke-linecap="round" opacity=".35"/>
+              </g>
+              <g class="faceWorried" style="opacity:0">
+                <path d="M118 176c12-12 24-16 36-16s24 4 36 16" fill="none" stroke="#111827" stroke-width="6" stroke-linecap="round" opacity=".35"/>
+                <path d="M110 112c10-8 18-10 28-10" fill="none" stroke="#111827" stroke-width="6" stroke-linecap="round" opacity=".22"/>
+                <path d="M176 112c-10-8-18-10-28-10" fill="none" stroke="#111827" stroke-width="6" stroke-linecap="round" opacity=".22"/>
+              </g>
+            </svg>
+
+            <!-- Monster -->
+            <svg class="creatureSvg" data-char="monster" id="monster" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Monster" style="display:none">
+              <defs>
+                <linearGradient id="gMon" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#a7f3d0"/>
+                  <stop offset="1" stop-color="#34d399"/>
+                </linearGradient>
+              </defs>
+              <rect x="70" y="70" width="160" height="160" rx="46" fill="url(#gMon)"/>
+              <circle cx="125" cy="128" r="16" fill="#111827"/>
+              <circle cx="175" cy="128" r="16" fill="#111827"/>
+              <g class="faceHappy">
+                <path d="M115 170c12 14 24 20 40 20s28-6 40-20" fill="none" stroke="#111827" stroke-width="8" stroke-linecap="round" opacity=".35"/>
+              </g>
+              <g class="faceWorried" style="opacity:0">
+                <path d="M115 192c16-16 28-20 40-20s24 4 40 20" fill="none" stroke="#111827" stroke-width="8" stroke-linecap="round" opacity=".35"/>
+              </g>
+              <path d="M110 52l14 28h-28z" fill="#86efac"/>
+              <path d="M190 52l14 28h-28z" fill="#86efac"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="zoneLabel" id="zoneLabel">
+          <span class="dot" id="zoneDot" style="background: var(--muted)"></span>
+          <span id="zoneText">Waiting for mic…</span>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Offline use: open <code>quiet-koala/index.html</code> in Chrome → Start → allow mic.
+      If Chrome blocks mic for local files, run a tiny local server (instructions in the message).
+    </footer>
+  </div>
+
+<script>
+// Register service worker for offline use (PWA)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+  });
+}
+
+
+(() => {
+  const els = {
+    btnStart: document.getElementById('btnStart'),
+    btnFull: document.getElementById('btnFull'),
+    btnReset: document.getElementById('btnReset'),
+    btnCalm: document.getElementById('btnCalm'),
+    btnLoud: document.getElementById('btnLoud'),
+    charPick: document.getElementById('charPick'),
+    statusBadge: document.getElementById('statusBadge'),
+    vLoud: document.getElementById('vLoud'),
+    vZone: document.getElementById('vZone'),
+    vQuiet: document.getElementById('vQuiet'),
+    vLoudBase: document.getElementById('vLoudBase'),
+    sSmooth: document.getElementById('sSmooth'),
+    tSmooth: document.getElementById('tSmooth'),
+    sSensitivity: document.getElementById('sSensitivity'),
+    tSensitivity: document.getElementById('tSensitivity'),
+    calMsg: document.getElementById('calMsg'),
+    meterFill: document.getElementById('meterFill'),
+    zoneLabel: document.getElementById('zoneLabel'),
+    zoneDot: document.getElementById('zoneDot'),
+    zoneText: document.getElementById('zoneText'),
+  };
+
+  function currentCreature(){
+    return document.querySelector('.creatureSvg:not([style*="display:none"])');
+  }
+
+  function setCharacter(name){
+    document.querySelectorAll('.creatureSvg').forEach(svg => {
+      svg.style.display = (svg.getAttribute('data-char') === name) ? '' : 'none';
+    });
+    localStorage.setItem(STORE_KEY + '.character', name);
+  }
+
+  function getCharacter(){
+    return localStorage.getItem(STORE_KEY + '.character') || 'koala';
+  }
+
+  const STORE_KEY = 'quietKoala.v1';
+
+  const state = {
+    audioCtx: null,
+    analyser: null,
+    src: null,
+    stream: null,
+    raf: null,
+
+    // signal
+    smooth: 0,
+    rms: 0,
+
+    // settings
+    alpha: 0.10,
+    sensitivity: 1.2,
+
+    // calibration
+    quiet: null,
+    loud: null,
+
+    // derived thresholds (3 zones)
+    greenSpan: 0.18,
+    redSpan: 0.42,
+  };
+
+  function loadSettings(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      if(!raw) return;
+      const s = JSON.parse(raw);
+      if(typeof s.alpha === 'number') state.alpha = clamp(s.alpha, 0.02, 0.40);
+      if(typeof s.sensitivity === 'number') state.sensitivity = clamp(s.sensitivity, 0.5, 3.0);
+      if(typeof s.quiet === 'number') state.quiet = s.quiet;
+      if(typeof s.loud === 'number') state.loud = s.loud;
+    }catch(e){/* ignore */}
+  }
+  function saveSettings(){
+    const s = { alpha: state.alpha, sensitivity: state.sensitivity, quiet: state.quiet, loud: state.loud };
+    localStorage.setItem(STORE_KEY, JSON.stringify(s));
+  }
+  function resetSettings(){
+    localStorage.removeItem(STORE_KEY);
+    state.quiet = null;
+    state.loud = null;
+    state.alpha = 0.10;
+    state.sensitivity = 1.2;
+    applyUIFromState();
+    msg('Settings reset. Recalibrate QUIET and TOO LOUD.');
+  }
+
+  function clamp(x,min,max){ return Math.max(min, Math.min(max, x)); }
+
+  function msg(t){
+    els.calMsg.textContent = t;
+  }
+
+  function applyUIFromState(){
+    els.sSmooth.value = String(state.alpha);
+    els.tSmooth.textContent = state.alpha.toFixed(2);
+    els.sSensitivity.value = String(state.sensitivity);
+    els.tSensitivity.textContent = state.sensitivity.toFixed(1);
+    els.vQuiet.textContent = (state.quiet==null) ? '—' : state.quiet.toFixed(3);
+    els.vLoudBase.textContent = (state.loud==null) ? '—' : state.loud.toFixed(3);
+  }
+
+  async function start(){
+    if(state.audioCtx) return;
+    els.statusBadge.textContent = 'Mic: requesting…';
+
+    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    try{
+      state.stream = await navigator.mediaDevices.getUserMedia({ audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      }});
+    }catch(err){
+      els.statusBadge.textContent = 'Mic: blocked';
+      msg('Microphone permission denied. Click the site lock icon → allow microphone, then reload.');
+      console.error(err);
+      return;
+    }
+
+    state.src = state.audioCtx.createMediaStreamSource(state.stream);
+    state.analyser = state.audioCtx.createAnalyser();
+    state.analyser.fftSize = 2048;
+
+    state.src.connect(state.analyser);
+
+    els.statusBadge.textContent = 'Mic: live';
+    msg('Mic is live. Calibrate QUIET and TOO LOUD for best results.');
+
+    loop();
+  }
+
+  function computeRms(){
+    const analyser = state.analyser;
+    const buf = new Float32Array(analyser.fftSize);
+    analyser.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for(let i=0;i<buf.length;i++) sum += buf[i]*buf[i];
+    const rms = Math.sqrt(sum / buf.length);
+    // Apply sensitivity multiplier and clamp to a reasonable range.
+    return clamp(rms * state.sensitivity, 0, 1);
+  }
+
+  function zoneFromLevel(level){
+    // If not calibrated, default thresholds.
+    const quiet = (state.quiet==null) ? 0.030 : state.quiet;
+    const loud  = (state.loud==null)  ? 0.120 : state.loud;
+
+    // If teacher accidentally calibrates in wrong order, fix it.
+    const q = Math.min(quiet, loud);
+    const l = Math.max(quiet, loud);
+
+    // Derive spans based on calibrated range.
+    const range = Math.max(0.03, (l - q));
+    const greenT = q + range * 0.35; // below this => green
+    const redT   = q + range * 0.75; // above this => red
+
+    if(level <= greenT) return { zone:'Green', color:'var(--good)', greenT, redT };
+    if(level >= redT) return { zone:'Red', color:'var(--bad)', greenT, redT };
+    return { zone:'Amber', color:'var(--warn)', greenT, redT };
+  }
+
+  function updateCreature(level){
+    const { zone, color, greenT, redT } = zoneFromLevel(level);
+
+    // Map level to a progress (0..1) where 1 = fully out.
+    const prog = clamp((redT - level) / (redT - greenT), 0, 1);
+
+    // Creature slides from behind the tree.
+    const x = (1 - prog) * 22 + prog * (-30);
+    const creature = currentCreature();
+    if(creature){
+      creature.style.transform = `translateY(-50%) translateX(${x}%)`;
+    }
+
+    // Face swap based on zone.
+    const happy = creature?.querySelector('.faceHappy');
+    const worried = creature?.querySelector('.faceWorried');
+    if(happy && worried){
+      happy.style.opacity = (zone === 'Red') ? 0 : 1;
+      worried.style.opacity = (zone === 'Red') ? 1 : 0;
+    }
+
+    // Labels
+    els.vZone.textContent = zone;
+    els.zoneDot.style.background = color;
+    els.zoneText.textContent = zone === 'Green' ? 'Nice and quiet — your friend is happy' :
+                               zone === 'Amber' ? 'Getting loud — your friend is cautious' :
+                               'Too loud — your friend is hiding';
+
+    // Meter: scale based on calibrated range.
+    const q = (state.quiet==null) ? 0.03 : state.quiet;
+    const l = (state.loud==null) ? 0.12 : state.loud;
+    const range = Math.max(0.05, (Math.max(q,l) - Math.min(q,l)));
+    const pct = clamp(((level - Math.min(q,l)) / range) * 100, 0, 120);
+    els.meterFill.style.width = pct.toFixed(1) + '%';
+  }
+
+  function loop(){
+    if(!state.analyser) return;
+    const instant = computeRms();
+    state.rms = instant;
+    state.smooth = (1 - state.alpha) * state.smooth + state.alpha * instant;
+
+    els.vLoud.textContent = state.smooth.toFixed(3);
+    updateCreature(state.smooth);
+
+    state.raf = requestAnimationFrame(loop);
+  }
+
+  async function calibrate(kind, seconds){
+    if(!state.audioCtx) await start();
+    if(!state.analyser) return;
+
+    els.btnCalm.disabled = true;
+    els.btnLoud.disabled = true;
+
+    msg(`Calibrating ${kind}… keep the room ${kind === 'QUIET' ? 'at your expected quiet level' : 'at your “too loud” level'} for ${seconds}s.`);
+
+    const startAt = performance.now();
+    const samples = [];
+
+    while ((performance.now() - startAt) < seconds * 1000){
+      samples.push(state.smooth);
+      await new Promise(r => setTimeout(r, 120));
+    }
+
+    // Use median to avoid spikes.
+    samples.sort((a,b)=>a-b);
+    const median = samples[Math.floor(samples.length/2)] ?? state.smooth;
+
+    if(kind === 'QUIET') state.quiet = median;
+    else state.loud = median;
+
+    saveSettings();
+    applyUIFromState();
+
+    els.btnCalm.disabled = false;
+    els.btnLoud.disabled = false;
+
+    msg(`Saved ${kind} level = ${median.toFixed(3)}. ${state.quiet!=null && state.loud!=null ? 'You are calibrated.' : 'Now do the other calibration.'}`);
+  }
+
+  // UI hooks
+  els.btnStart.addEventListener('click', start);
+  els.btnFull.addEventListener('click', async () => {
+    if(!document.fullscreenElement){
+      await document.documentElement.requestFullscreen?.();
+    } else {
+      await document.exitFullscreen?.();
+    }
+  });
+  els.btnReset.addEventListener('click', resetSettings);
+
+  els.btnCalm.addEventListener('click', () => calibrate('QUIET', 10));
+  els.btnLoud.addEventListener('click', () => calibrate('TOO LOUD', 5));
+
+  els.sSmooth.addEventListener('input', () => {
+    state.alpha = parseFloat(els.sSmooth.value);
+    els.tSmooth.textContent = state.alpha.toFixed(2);
+    saveSettings();
+  });
+  els.sSensitivity.addEventListener('input', () => {
+    state.sensitivity = parseFloat(els.sSensitivity.value);
+    els.tSensitivity.textContent = state.sensitivity.toFixed(1);
+    saveSettings();
+  });
+
+  // Character picker
+  els.charPick.value = getCharacter();
+  setCharacter(els.charPick.value);
+  els.charPick.addEventListener('change', () => setCharacter(els.charPick.value));
+
+  // Load
+  loadSettings();
+  applyUIFromState();
+
+  // Basic capability checks
+  if(!navigator.mediaDevices?.getUserMedia){
+    msg('This browser does not support getUserMedia audio. Use Chrome on Chromebook.');
+    els.btnStart.disabled = true;
+  }
+})();
+</script>
+</body>
+</html>
