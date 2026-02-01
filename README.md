@@ -16,6 +16,9 @@ Microphone access usually requires a **secure context**:
 - ✅ `http://localhost:PORT` (local dev)
 - ⚠️ `file://…` often blocks mic access
 
+## Chromebook / Google Workspace deployment
+See: **docs/schools-it-checklist.md**
+
 ### Option A: Local server (Chromebook / laptop)
 If you have Node:
 ```bash
