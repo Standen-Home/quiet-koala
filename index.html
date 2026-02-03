@@ -223,6 +223,12 @@
           <div><span id="tSensitivity">1.2</span>x</div>
         </div>
 
+        <div class="slider">
+          <label for="sHyst"><b>Hysteresis</b></label>
+          <input id="sHyst" type="range" min="0" max="0.20" step="0.01" value="0.08" />
+          <div><span id="tHyst">0.08</span></div>
+        </div>
+
         <div class="zones">
           <div class="zone">
             <div><strong>Green</strong> Koala comes out</div>
@@ -323,6 +329,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     tSmooth: document.getElementById('tSmooth'),
     sSensitivity: document.getElementById('sSensitivity'),
     tSensitivity: document.getElementById('tSensitivity'),
+    sHyst: document.getElementById('sHyst'),
+    tHyst: document.getElementById('tHyst'),
     calMsg: document.getElementById('calMsg'),
     meterFill: document.getElementById('meterFill'),
     zoneLabel: document.getElementById('zoneLabel'),
@@ -419,6 +427,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
     quiet: null,
     loud: null,
 
+    // zone behavior
+    hysteresisPct: 0.08, // fraction of calibrated range used as a deadband
+
     // derived thresholds (3 zones)
     greenSpan: 0.18,
     redSpan: 0.42,
@@ -436,11 +447,19 @@ window.addEventListener('beforeinstallprompt', (e) => {
       if(typeof s.sensitivity === 'number') state.sensitivity = clamp(s.sensitivity, 0.5, 3.0);
       if(typeof s.quiet === 'number') state.quiet = s.quiet;
       if(typeof s.loud === 'number') state.loud = s.loud;
+      if(typeof s.hysteresisPct === 'number') state.hysteresisPct = clamp(s.hysteresisPct, 0, 0.20);
       if(typeof s.streakEnabled === 'boolean') state.streakEnabled = s.streakEnabled;
     }catch(e){/* ignore */}
   }
   function saveSettings(){
-    const s = { alpha: state.alpha, sensitivity: state.sensitivity, quiet: state.quiet, loud: state.loud, streakEnabled: !!state.streakEnabled };
+    const s = {
+      alpha: state.alpha,
+      sensitivity: state.sensitivity,
+      quiet: state.quiet,
+      loud: state.loud,
+      hysteresisPct: state.hysteresisPct,
+      streakEnabled: !!state.streakEnabled,
+    };
     localStorage.setItem(STORE_KEY, JSON.stringify(s));
   }
   function resetSettings(){
@@ -455,6 +474,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     state.loud = null;
     state.alpha = 0.10;
     state.sensitivity = 1.2;
+    state.hysteresisPct = 0.08;
     state.currentZone = null;
     applyUIFromState();
     msg('Settings reset. Recalibrate QUIET and TOO LOUD.');
@@ -517,7 +537,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     // Disable settings controls while locked
     const disable = locked;
-    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.chkStreak, els.charPick, els.btnReset].forEach(el => {
+    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.chkStreak, els.charPick, els.btnReset].forEach(el => {
       if(el) el.disabled = disable;
     });
 
@@ -531,6 +551,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     els.tSmooth.textContent = state.alpha.toFixed(2);
     els.sSensitivity.value = String(state.sensitivity);
     els.tSensitivity.textContent = state.sensitivity.toFixed(1);
+    if(els.sHyst){
+      els.sHyst.value = String(state.hysteresisPct);
+      els.tHyst.textContent = state.hysteresisPct.toFixed(2);
+    }
     els.vQuiet.textContent = (state.quiet==null) ? '—' : state.quiet.toFixed(3);
     els.vLoudBase.textContent = (state.loud==null) ? '—' : state.loud.toFixed(3);
     if(els.chkStreak) els.chkStreak.checked = !!state.streakEnabled;
@@ -594,8 +618,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
     const greenT = q + range * 0.35;
     const redT   = q + range * 0.75;
 
-    // Hysteresis margins (as a fraction of range)
-    const hz = clamp(range * 0.08, 0.004, 0.05);
+    // Hysteresis margin: deadband (as a fraction of calibrated range)
+    // Higher = less flicker, but slower to respond.
+    const hz = clamp(range * state.hysteresisPct, 0.0, 0.06);
 
     // Naive zone
     let zone = (level <= greenT) ? 'Green' : (level >= redT) ? 'Red' : 'Amber';
@@ -790,6 +815,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
     if(isLocked()) return;
     state.sensitivity = parseFloat(els.sSensitivity.value);
     els.tSensitivity.textContent = state.sensitivity.toFixed(1);
+    saveSettings();
+  });
+
+  els.sHyst.addEventListener('input', () => {
+    if(isLocked()) return;
+    state.hysteresisPct = parseFloat(els.sHyst.value);
+    els.tHyst.textContent = state.hysteresisPct.toFixed(2);
     saveSettings();
   });
 
