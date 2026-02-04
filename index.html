@@ -159,11 +159,17 @@
           <li>Click <b>Calibrate QUIET</b> (10s)</li>
           <li>Click <b>Calibrate TOO LOUD</b> (5s)</li>
           <li>Pick a character</li>
-          <li>(Optional) click <b>Lock settings</b> so students can’t change it</li>
+          <li>(Optional) click <b>Full screen</b> and <b>Lock settings</b> so students can’t change it</li>
         </ol>
+
         <div style="margin-top:12px; color:var(--muted); font-size:13px;">
-          Note: microphone access needs <code>https://</code> or <code>http://localhost</code>.
+          Tip: if you want this to work offline, click <b>Install</b> (Chrome/Edge) once it appears.
+          <br/>Note: microphone access needs <code>https://</code> or <code>http://localhost</code>.
         </div>
+
+        <label style="display:flex; gap:10px; align-items:center; margin-top:14px; color:var(--muted); font-size:13px;">
+          <input id="chkQSdontShow" type="checkbox" /> Don’t show this again on this device
+        </label>
       </div>
     </div>
     <header>
@@ -171,7 +177,7 @@
       <span class="badge" id="statusBadge">Mic: not started</span>
       <span class="badge" id="offlineBadge">Offline-ready: yes (PWA cache)</span>
       <span class="badge" style="cursor:pointer" id="btnQuickStart">Quick start</span>
-      <span class="badge" style="cursor:pointer" id="btnInstall" title="Install this app">Install</span>
+      <span class="badge" style="cursor:pointer; display:none" id="btnInstall" title="Install this app">Install</span>
     </header>
 
     <main>
@@ -303,6 +309,15 @@ let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
+  // Show Install CTA once the prompt becomes available.
+  const btn = document.getElementById('btnInstall');
+  if(btn) btn.style.display = 'inline-flex';
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  const btn = document.getElementById('btnInstall');
+  if(btn) btn.style.display = 'none';
 });
 
 
@@ -339,6 +354,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     quickStart: document.getElementById('quickStart'),
     btnQSclose: document.getElementById('btnQSclose'),
+    chkQSdontShow: document.getElementById('chkQSdontShow'),
     btnQuickStart: document.getElementById('btnQuickStart'),
     btnInstall: document.getElementById('btnInstall'),
   };
@@ -404,6 +420,23 @@ window.addEventListener('beforeinstallprompt', (e) => {
   }
 
   const STORE_KEY = 'quietKoala.v1';
+  const QS_DISMISS_KEY = STORE_KEY + '.quickStart.dismissed';
+
+  function isInstalled(){
+    // PWA installed / standalone display mode
+    const mql = window.matchMedia?.('(display-mode: standalone)');
+    const standalone = !!mql?.matches;
+    const iosStandalone = !!navigator.standalone; // iOS Safari
+    return standalone || iosStandalone;
+  }
+
+  function getQSDismissed(){
+    return localStorage.getItem(QS_DISMISS_KEY) === '1';
+  }
+
+  function setQSDismissed(v){
+    localStorage.setItem(QS_DISMISS_KEY, v ? '1' : '0');
+  }
 
   const state = {
     audioCtx: null,
@@ -760,15 +793,21 @@ window.addEventListener('beforeinstallprompt', (e) => {
   });
   els.btnReset.addEventListener('click', resetSettings);
 
-  // Quick-start overlay
-  els.btnQuickStart.addEventListener('click', () => {
+  function openQuickStart(){
+    if(els.chkQSdontShow) els.chkQSdontShow.checked = getQSDismissed();
     els.quickStart.style.display = 'block';
-  });
-  els.btnQSclose.addEventListener('click', () => {
+  }
+
+  function closeQuickStart(){
+    if(els.chkQSdontShow) setQSDismissed(!!els.chkQSdontShow.checked);
     els.quickStart.style.display = 'none';
-  });
+  }
+
+  // Quick-start overlay
+  els.btnQuickStart.addEventListener('click', openQuickStart);
+  els.btnQSclose.addEventListener('click', closeQuickStart);
   els.quickStart.addEventListener('click', (e) => {
-    if(e.target === els.quickStart) els.quickStart.style.display = 'none';
+    if(e.target === els.quickStart) closeQuickStart();
   });
 
   // Install button (PWA)
@@ -845,6 +884,18 @@ window.addEventListener('beforeinstallprompt', (e) => {
   loadSettings();
   applyUIFromState();
   applyLockState();
+
+  // Install CTA visibility (will also be shown when beforeinstallprompt fires)
+  if(isInstalled()){
+    els.btnInstall.style.display = 'none';
+  } else {
+    els.btnInstall.style.display = deferredPrompt ? 'inline-flex' : 'none';
+  }
+
+  // Auto-show quick start on first run (unless dismissed / installed)
+  if(!isInstalled() && !getQSDismissed()){
+    setTimeout(openQuickStart, 450);
+  }
 
   // Basic capability checks
   if(!navigator.mediaDevices?.getUserMedia){
