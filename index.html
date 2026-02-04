@@ -172,6 +172,33 @@
         </label>
       </div>
     </div>
+
+    <!-- Character pack admin (local JSON override) -->
+    <div id="packAdmin" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:60;">
+      <div style="max-width:820px; margin:6vh auto; background:rgba(18,26,51,.92); border:1px solid var(--stroke); border-radius:16px; padding:18px; box-shadow: 0 20px 60px rgba(0,0,0,.5);">
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
+          <div style="font-weight:800; font-size:18px;">Manage character packs (teacher)</div>
+          <button id="btnPackClose">Close</button>
+        </div>
+        <div style="margin-top:10px; color:var(--muted); font-size:13px; line-height:1.35;">
+          Paste a <code>characters/index.json</code>-style payload below. This is stored on this device only (localStorage) and overrides the built-in pack list.
+          <br/>Tip: use this to hide characters, rename them, or reorder options.
+        </div>
+
+        <textarea id="packJson" spellcheck="false" style="width:100%; min-height:280px; margin-top:12px; padding:12px; border-radius:12px; border:1px solid var(--stroke); background:rgba(0,0,0,.18); color:var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace; font-size:12px;"></textarea>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px; flex-wrap:wrap;">
+          <button class="danger" id="btnPackReset" title="Remove local override and return to built-in packs">Reset to built-in</button>
+          <button id="btnPackLoadBuiltIn" title="Load the built-in JSON into the editor">Load built-in</button>
+          <button class="primary" id="btnPackSave">Save override</button>
+        </div>
+
+        <div style="margin-top:10px; color:var(--muted); font-size:13px;">
+          Safety: only SVGs that are packaged with the app should be referenced.
+        </div>
+      </div>
+    </div>
+
     <header>
       <h1>Quiet Koala</h1>
       <span class="badge" id="statusBadge">Mic: not started</span>
@@ -192,7 +219,9 @@
         <div class="slider">
           <label for="charPick"><b>Character</b></label>
           <select id="charPick" style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--stroke); background:rgba(255,255,255,.06); color:var(--text)"></select>
-          <div></div>
+          <div style="text-align:right">
+            <button id="btnPackAdmin" title="Teacher: edit character packs on this device" style="padding:8px 10px; font-size:12px;">Manage packs</button>
+          </div>
         </div>
         <div class="help">
           Tip: first click <b>Start</b> to grant mic access. Then calibrate Quiet/Loud once per room setup.
@@ -357,9 +386,19 @@ window.addEventListener('appinstalled', () => {
     chkQSdontShow: document.getElementById('chkQSdontShow'),
     btnQuickStart: document.getElementById('btnQuickStart'),
     btnInstall: document.getElementById('btnInstall'),
+
+    // character pack admin
+    btnPackAdmin: document.getElementById('btnPackAdmin'),
+    packAdmin: document.getElementById('packAdmin'),
+    packJson: document.getElementById('packJson'),
+    btnPackClose: document.getElementById('btnPackClose'),
+    btnPackSave: document.getElementById('btnPackSave'),
+    btnPackReset: document.getElementById('btnPackReset'),
+    btnPackLoadBuiltIn: document.getElementById('btnPackLoadBuiltIn'),
   };
 
-  let characterIndex = null; // loaded from characters/index.json
+  let characterIndex = null; // effective index (built-in or overridden)
+  let builtInCharacterIndex = null; // always the bundled characters/index.json
   let currentChar = null; // {id,name,file}
 
   function currentCreature(){
@@ -382,10 +421,56 @@ window.addEventListener('appinstalled', () => {
     loadCharacterSvg(char?.file);
   }
 
+  function validateCharacterIndex(idx){
+    if(!idx || typeof idx !== 'object') throw new Error('Index must be an object');
+    if(!Array.isArray(idx.packs)) throw new Error('Index must have packs: []');
+
+    // Light validation + normalization.
+    const seenPackIds = new Set();
+    for(const p of idx.packs){
+      if(!p || typeof p !== 'object') throw new Error('Each pack must be an object');
+      if(typeof p.id !== 'string' || !p.id.trim()) throw new Error('Pack id is required');
+      if(seenPackIds.has(p.id)) throw new Error(`Duplicate pack id: ${p.id}`);
+      seenPackIds.add(p.id);
+      if(typeof p.name !== 'string') p.name = p.id;
+      if(!Array.isArray(p.characters)) throw new Error(`Pack ${p.id} must have characters: []`);
+      const seenCharIds = new Set();
+      for(const c of p.characters){
+        if(!c || typeof c !== 'object') throw new Error(`Pack ${p.id}: each character must be an object`);
+        if(typeof c.id !== 'string' || !c.id.trim()) throw new Error(`Pack ${p.id}: character id is required`);
+        if(seenCharIds.has(c.id)) throw new Error(`Pack ${p.id}: duplicate character id: ${c.id}`);
+        seenCharIds.add(c.id);
+        if(typeof c.name !== 'string') c.name = c.id;
+        if(typeof c.file !== 'string' || !c.file.trim()) throw new Error(`Pack ${p.id}/${c.id}: file is required`);
+        // Keep paths relative (basic safety).
+        if(c.file.includes('..') || c.file.startsWith('http')) throw new Error(`Pack ${p.id}/${c.id}: invalid file path`);
+      }
+    }
+    return idx;
+  }
+
+  function getCharacterIndexOverride(){
+    const raw = localStorage.getItem(PACK_OVERRIDE_KEY);
+    if(!raw) return null;
+    const idx = JSON.parse(raw);
+    return validateCharacterIndex(idx);
+  }
+
   async function loadCharacterIndex(){
     const res = await fetch('./characters/index.json', { cache: 'no-store' });
     if(!res.ok) throw new Error('Could not load characters/index.json');
-    characterIndex = await res.json();
+    builtInCharacterIndex = await res.json();
+    validateCharacterIndex(builtInCharacterIndex);
+
+    let effective = builtInCharacterIndex;
+    try{
+      const override = getCharacterIndexOverride();
+      if(override) effective = override;
+    }catch(e){
+      console.warn('Invalid character pack override; ignoring.', e);
+    }
+
+    characterIndex = effective;
 
     // Populate picker (pack grouped)
     els.charPick.innerHTML = '';
@@ -421,6 +506,7 @@ window.addEventListener('appinstalled', () => {
 
   const STORE_KEY = 'quietKoala.v1';
   const QS_DISMISS_KEY = STORE_KEY + '.quickStart.dismissed';
+  const PACK_OVERRIDE_KEY = STORE_KEY + '.characterIndexOverride';
 
   function isInstalled(){
     // PWA installed / standalone display mode
@@ -570,7 +656,7 @@ window.addEventListener('appinstalled', () => {
 
     // Disable settings controls while locked
     const disable = locked;
-    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.chkStreak, els.charPick, els.btnReset].forEach(el => {
+    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.chkStreak, els.charPick, els.btnReset, els.btnPackAdmin].forEach(el => {
       if(el) el.disabled = disable;
     });
 
@@ -808,6 +894,75 @@ window.addEventListener('appinstalled', () => {
   els.btnQSclose.addEventListener('click', closeQuickStart);
   els.quickStart.addEventListener('click', (e) => {
     if(e.target === els.quickStart) closeQuickStart();
+  });
+
+  // Character pack admin (local JSON override)
+  function openPackAdmin(){
+    if(isLocked()){
+      msg('Settings are locked. Unlock to manage packs.');
+      return;
+    }
+    // Prefer showing current effective list (override if present, otherwise built-in)
+    try{
+      const raw = localStorage.getItem(PACK_OVERRIDE_KEY);
+      if(raw){
+        els.packJson.value = raw;
+      } else if(builtInCharacterIndex){
+        els.packJson.value = JSON.stringify(builtInCharacterIndex, null, 2);
+      } else {
+        els.packJson.value = '{\n  "packs": []\n}';
+      }
+    }catch(e){
+      els.packJson.value = '{\n  "packs": []\n}';
+    }
+    els.packAdmin.style.display = 'block';
+  }
+
+  function closePackAdmin(){
+    els.packAdmin.style.display = 'none';
+  }
+
+  els.btnPackAdmin?.addEventListener('click', openPackAdmin);
+  els.btnPackClose?.addEventListener('click', closePackAdmin);
+  els.packAdmin?.addEventListener('click', (e) => {
+    if(e.target === els.packAdmin) closePackAdmin();
+  });
+
+  els.btnPackLoadBuiltIn?.addEventListener('click', () => {
+    if(!builtInCharacterIndex){
+      msg('Built-in character index not loaded yet.');
+      return;
+    }
+    els.packJson.value = JSON.stringify(builtInCharacterIndex, null, 2);
+  });
+
+  els.btnPackReset?.addEventListener('click', async () => {
+    if(isLocked()) return;
+    localStorage.removeItem(PACK_OVERRIDE_KEY);
+    await loadCharacterIndex();
+    els.charPick.value = getCharacter();
+    setCharacter(els.charPick.value);
+    msg('Character packs reset to built-in.');
+  });
+
+  els.btnPackSave?.addEventListener('click', async () => {
+    if(isLocked()) return;
+    try{
+      const text = els.packJson.value;
+      const parsed = JSON.parse(text);
+      validateCharacterIndex(parsed);
+      localStorage.setItem(PACK_OVERRIDE_KEY, JSON.stringify(parsed));
+      await loadCharacterIndex();
+      // If current selection no longer exists, fall back to first.
+      els.charPick.value = getCharacter();
+      if(!els.charPick.value) els.charPick.selectedIndex = 0;
+      setCharacter(els.charPick.value);
+      msg('Saved character pack override (this device only).');
+      closePackAdmin();
+    }catch(e){
+      alert('Could not save: ' + (e?.message || String(e)));
+      console.error(e);
+    }
   });
 
   // Install button (PWA)
