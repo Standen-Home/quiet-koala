@@ -164,6 +164,7 @@
 
         <div style="margin-top:12px; color:var(--muted); font-size:13px;">
           Tip: if you want this to work offline, click <b>Install</b> (Chrome/Edge) once it appears.
+          <br/>On iPad/iPhone: <b>Share</b> → <b>Add to Home Screen</b>.
           <br/>Note: microphone access needs <code>https://</code> or <code>http://localhost</code>.
         </div>
 
@@ -507,6 +508,12 @@ window.addEventListener('appinstalled', () => {
   const STORE_KEY = 'quietKoala.v1';
   const QS_DISMISS_KEY = STORE_KEY + '.quickStart.dismissed';
   const PACK_OVERRIDE_KEY = STORE_KEY + '.characterIndexOverride';
+
+  function isIOS(){
+    // iOS Safari (no beforeinstallprompt); install via Share → Add to Home Screen.
+    const ua = navigator.userAgent || '';
+    return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  }
 
   function isInstalled(){
     // PWA installed / standalone display mode
@@ -967,10 +974,21 @@ window.addEventListener('appinstalled', () => {
 
   // Install button (PWA)
   els.btnInstall.addEventListener('click', async () => {
-    if(!deferredPrompt){
-      msg('Install not available yet. If you already installed it, great — otherwise try Chrome and ensure you are on https:// or localhost.');
+    if(isInstalled()){
+      msg('Already installed (standalone).');
       return;
     }
+
+    if(!deferredPrompt){
+      if(isIOS()){
+        alert('To install on iPad/iPhone:\n\n1) Tap the Share button in Safari\n2) Tap “Add to Home Screen”\n\nThen reopen Quiet Koala from your home screen for the best offline experience.');
+        return;
+      }
+
+      msg('Install not available yet. Try Chrome/Edge, and ensure you are on https:// or localhost.');
+      return;
+    }
+
     deferredPrompt.prompt();
     await deferredPrompt.userChoice;
     deferredPrompt = null;
@@ -1044,7 +1062,8 @@ window.addEventListener('appinstalled', () => {
   if(isInstalled()){
     els.btnInstall.style.display = 'none';
   } else {
-    els.btnInstall.style.display = deferredPrompt ? 'inline-flex' : 'none';
+    // iOS Safari never fires beforeinstallprompt; keep CTA visible to show instructions.
+    els.btnInstall.style.display = (deferredPrompt || isIOS()) ? 'inline-flex' : 'none';
   }
 
   // Auto-show quick start on first run (unless dismissed / installed)
