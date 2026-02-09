@@ -243,33 +243,40 @@
           <button id="btnLoud">Calibrate TOO LOUD (5s)</button>
         </div>
 
-        <div class="toggleRow">
-          <input type="checkbox" id="chkStreak" />
-          <label for="chkStreak"><b>Show quiet streak reward</b> (10s in Green)</label>
-        </div>
+        <details id="settingsPanel" style="margin-top:8px; border:1px solid var(--stroke); border-radius:12px; padding:10px; background:rgba(0,0,0,.10)">
+          <summary style="cursor:pointer; font-weight:750; color:var(--text)">Settings</summary>
+          <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
+            <div class="toggleRow">
+              <input type="checkbox" id="chkStreak" />
+              <label for="chkStreak"><b>Show quiet streak reward</b> (10s in Green)</label>
+            </div>
 
-        <div class="slider">
-          <label for="sSmooth"><b>Smoothing</b></label>
-          <input id="sSmooth" type="range" min="0.02" max="0.40" step="0.01" value="0.10" />
-          <div><span id="tSmooth">0.10</span></div>
-        </div>
-        <div class="slider">
-          <label for="sSensitivity"><b>Sensitivity</b></label>
-          <input id="sSensitivity" type="range" min="0.5" max="3.0" step="0.1" value="1.2" />
-          <div><span id="tSensitivity">1.2</span>x</div>
-        </div>
+            <div class="slider">
+              <label for="sSmooth"><b>Smoothing</b></label>
+              <input id="sSmooth" type="range" min="0.02" max="0.40" step="0.01" value="0.10" />
+              <div><span id="tSmooth">0.10</span></div>
+            </div>
+            <div class="slider">
+              <label for="sSensitivity"><b>Sensitivity</b></label>
+              <input id="sSensitivity" type="range" min="0.5" max="3.0" step="0.1" value="1.2" />
+              <div><span id="tSensitivity">1.2</span>x</div>
+            </div>
 
-        <div class="slider">
-          <label for="sHyst"><b>Hysteresis</b></label>
-          <input id="sHyst" type="range" min="0" max="0.20" step="0.01" value="0.08" />
-          <div><span id="tHyst">0.08</span></div>
-        </div>
+            <div class="slider">
+              <label for="sHyst"><b>Hysteresis</b></label>
+              <input id="sHyst" type="range" min="0" max="0.20" step="0.01" value="0.08" />
+              <div><span id="tHyst">0.08</span></div>
+            </div>
 
-        <div class="slider">
-          <label for="sHold"><b>Zone delay</b></label>
-          <input id="sHold" type="range" min="0" max="180" step="5" value="60" />
-          <div><span id="tHold">60</span>s</div>
-        </div>
+            <div class="slider">
+              <label for="sHold"><b>Zone delay</b></label>
+              <input id="sHold" type="range" min="0" max="180" step="5" value="60" />
+              <div><span id="tHold">60</span>s</div>
+            </div>
+
+            <div class="help">These are stored <b>locally</b> on this device (localStorage).</div>
+          </div>
+        </details>
 
         <div class="zones">
           <div class="zone">
@@ -395,6 +402,7 @@ window.addEventListener('appinstalled', () => {
     chkQSdontShow: document.getElementById('chkQSdontShow'),
     btnQuickStart: document.getElementById('btnQuickStart'),
     btnInstall: document.getElementById('btnInstall'),
+    settingsPanel: document.getElementById('settingsPanel'),
 
     // character pack admin
     btnPackAdmin: document.getElementById('btnPackAdmin'),
@@ -515,6 +523,7 @@ window.addEventListener('appinstalled', () => {
 
   const STORE_KEY = 'quietKoala.v1';
   const QS_DISMISS_KEY = STORE_KEY + '.quickStart.dismissed';
+  const SETTINGS_HINT_SHOWN_KEY = STORE_KEY + '.settingsHintShown';
   const PACK_OVERRIDE_KEY = STORE_KEY + '.characterIndexOverride';
 
   function isIOS(){
@@ -537,6 +546,13 @@ window.addEventListener('appinstalled', () => {
 
   function setQSDismissed(v){
     localStorage.setItem(QS_DISMISS_KEY, v ? '1' : '0');
+  }
+
+  function getSettingsHintShown(){
+    return localStorage.getItem(SETTINGS_HINT_SHOWN_KEY) === '1';
+  }
+  function setSettingsHintShown(){
+    localStorage.setItem(SETTINGS_HINT_SHOWN_KEY, '1');
   }
 
   const state = {
@@ -801,11 +817,16 @@ window.addEventListener('appinstalled', () => {
     const { zone: candidateZone, greenT, redT } = zoneFromLevel(level, prevZone);
 
     // Time-based debounce: require the candidate zone to persist for zoneHoldMs
+    // Special case: if it hits Red, switch immediately (safety / “reset on red”).
     if(prevZone == null){
       state.currentZone = candidateZone;
       state.pendingZone = null;
       state.pendingSince = 0;
     } else if(candidateZone === prevZone){
+      state.pendingZone = null;
+      state.pendingSince = 0;
+    } else if(candidateZone === 'Red'){
+      state.currentZone = 'Red';
       state.pendingZone = null;
       state.pendingSince = 0;
     } else {
@@ -1123,6 +1144,16 @@ window.addEventListener('appinstalled', () => {
   // Auto-show quick start on first run (unless dismissed / installed)
   if(!isInstalled() && !getQSDismissed()){
     setTimeout(openQuickStart, 450);
+  }
+
+  // “Settings” UI: keep collapsed by default after first run, but available any time.
+  if(els.settingsPanel){
+    if(!getSettingsHintShown()){
+      els.settingsPanel.open = true;
+      setSettingsHintShown();
+    } else {
+      els.settingsPanel.open = false;
+    }
   }
 
   // Basic capability checks
