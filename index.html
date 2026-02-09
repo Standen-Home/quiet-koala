@@ -281,7 +281,7 @@
         <div class="zones">
           <div class="zone">
             <div><strong>Green</strong> Koala comes out</div>
-            <div class="help">Below <code>quiet + greenSpan</code></div>
+            <div class="help">Below <code>quiet + range * greenSpan</code></div>
           </div>
           <div class="zone">
             <div><strong>Amber</strong> Koala cautious</div>
@@ -289,7 +289,7 @@
           </div>
           <div class="zone">
             <div><strong>Red</strong> Koala hides</div>
-            <div class="help">Above <code>quiet + redSpan</code></div>
+            <div class="help">Above <code>quiet + range * redSpan</code></div>
           </div>
         </div>
 
@@ -586,8 +586,10 @@ window.addEventListener('appinstalled', () => {
     pendingSince: 0,
 
     // derived thresholds (3 zones)
-    greenSpan: 0.18,
-    redSpan: 0.42,
+    // Fraction of the calibrated range above QUIET.
+    // Example: greenT = quiet + range * greenSpan
+    greenSpan: 0.35,
+    redSpan: 0.75,
 
     // rewards
     streakEnabled: true,
@@ -779,8 +781,13 @@ window.addEventListener('appinstalled', () => {
 
     // Derive thresholds based on calibrated range.
     const range = Math.max(0.03, (l - q));
-    const greenT = q + range * 0.35;
-    const redT   = q + range * 0.75;
+
+    // Safety clamps in case these defaults are ever made configurable.
+    const gs = clamp(state.greenSpan, 0.05, 0.90);
+    const rs = clamp(state.redSpan, gs + 0.05, 0.98);
+
+    const greenT = q + range * gs;
+    const redT   = q + range * rs;
 
     // Hysteresis margin: deadband (as a fraction of calibrated range)
     // Higher = less flicker, but slower to respond.
