@@ -578,7 +578,7 @@ window.addEventListener('appinstalled', () => {
     loud: null,
 
     // zone behavior
-    hysteresisPct: 0.08, // fraction of calibrated range used as a deadband
+    hysteresisPct: 0.04, // fraction of calibrated range used as a deadband
     zoneHoldMs: 60_000,  // must stay in a new zone for this long before switching
 
     // time-based zone debounce
@@ -633,7 +633,7 @@ window.addEventListener('appinstalled', () => {
     state.loud = null;
     state.alpha = 0.10;
     state.sensitivity = 1.2;
-    state.hysteresisPct = 0.08;
+    state.hysteresisPct = 0.04;
     state.zoneHoldMs = 60_000;
     state.currentZone = null;
     state.pendingZone = null;
