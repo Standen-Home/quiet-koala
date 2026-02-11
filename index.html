@@ -789,26 +789,28 @@ window.addEventListener('appinstalled', () => {
     const greenT = q + range * gs;
     const redT   = q + range * rs;
 
-    // Hysteresis margin: deadband (as a fraction of calibrated range)
+    // Hysteresis margins: deadbands (as a fraction of calibrated range)
     // Higher = less flicker, but slower to respond.
-    const hz = clamp(range * state.hysteresisPct, 0.0, 0.06);
+    // We bias the Red boundary a bit higher because Amber↔Red flicker is more noticeable.
+    const hzGreen = clamp(range * state.hysteresisPct, 0.0, 0.06);
+    const hzRed   = clamp(range * state.hysteresisPct * 1.5, 0.0, 0.08);
 
     // Naive zone
     let zone = (level <= greenT) ? 'Green' : (level >= redT) ? 'Red' : 'Amber';
 
     // Apply hysteresis: require "extra evidence" to move away from current zone.
     if(prevZone === 'Green'){
-      if(level <= greenT + hz) zone = 'Green';
+      if(level <= greenT + hzGreen) zone = 'Green';
     } else if(prevZone === 'Red'){
-      if(level >= redT - hz) zone = 'Red';
+      if(level >= redT - hzRed) zone = 'Red';
     } else if(prevZone === 'Amber'){
-      if(level < greenT - hz) zone = 'Green';
-      else if(level > redT + hz) zone = 'Red';
+      if(level < greenT - hzGreen) zone = 'Green';
+      else if(level > redT + hzRed) zone = 'Red';
       else zone = 'Amber';
     }
 
     const color = zone === 'Green' ? 'var(--good)' : zone === 'Amber' ? 'var(--warn)' : 'var(--bad)';
-    return { zone, color, greenT, redT, hz };
+    return { zone, color, greenT, redT, hzGreen, hzRed };
   }
 
   // Quiet streak (optional, toggle later)
