@@ -952,10 +952,11 @@ window.addEventListener('appinstalled', () => {
     lastTickAt = now;
 
     const prevZone = state.currentZone;
-    const { zone: candidateZone, greenT, redT } = zoneFromLevel(level, prevZone);
+    const { zone: candidateZone, greenT, redT, hzRed } = zoneFromLevel(level, prevZone);
 
-    // Time-based debounce: require the candidate zone to persist for zoneHoldMs
-    // Special case: if it hits Red, switch immediately (safety / “reset on red”).
+    // Time-based debounce: require the candidate zone to persist for zoneHoldMs.
+    // Red is handled with a short confirmation window to reduce Amber↔Red flicker
+    // caused by brief peaks (e.g. a single clap).
     if(prevZone == null){
       state.currentZone = candidateZone;
       state.pendingZone = null;
@@ -963,16 +964,18 @@ window.addEventListener('appinstalled', () => {
     } else if(candidateZone === prevZone){
       state.pendingZone = null;
       state.pendingSince = 0;
-    } else if(candidateZone === 'Red'){
-      state.currentZone = 'Red';
-      state.pendingZone = null;
-      state.pendingSince = 0;
     } else {
+      const holdMs = (candidateZone === 'Red') ? Math.min(1200, state.zoneHoldMs) : state.zoneHoldMs;
+
+      // If it blasts well into Red, switch immediately.
+      const redSnap = Math.max(hzRed, 0.02);
+      const snapNow = (candidateZone === 'Red') && (level >= (redT + redSnap));
+
       if(state.pendingZone !== candidateZone){
         state.pendingZone = candidateZone;
         state.pendingSince = now;
       }
-      if((now - state.pendingSince) >= state.zoneHoldMs){
+      if(snapNow || (now - state.pendingSince) >= holdMs){
         state.currentZone = candidateZone;
         state.pendingZone = null;
         state.pendingSince = 0;
