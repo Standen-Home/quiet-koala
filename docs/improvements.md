@@ -21,32 +21,45 @@ Principles
   - Add cooldown (e.g. 45–90s with jitter) so it doesn’t spam.
   - Save custom lines in `localStorage`.
 
-### Audio / stability
-- **Default hysteresis**: consider lowering the default hysteresis from `0.08` to something smaller (e.g. `0.04`) now that **Zone delay** exists.
-  - Goal: keep the app responsive without flicker.
+### Audio / stability (testing + tuning)
+- Keep tuning defaults based on classroom testing (zone delay, hysteresis, thresholds).
 
 ---
 
 ## Shipped
 
-- **Install CTA + Quick Start overlay**
+- **Install UX (PWA)**
   - Install badge only appears when install prompt is available.
-  - Quick Start auto-shows on first run (unless dismissed / installed).
+  - Added iOS install help ("Add to Home Screen") when install prompt isn’t available.
+
+- **Quick Start overlay**
+  - Auto-shows on first run (unless dismissed / installed).
   - "Don’t show again" option.
+
+- **Settings panel (first-run hint)**
+  - Settings panel opens on first run (per device), then stays available under Settings.
 
 - **Zone delay (time-based debounce)**
   - Must remain in a new zone for a configurable duration before switching (default 60s).
   - **Reset on red**: switching to Red is immediate (ignores delay), clears pending transition.
-  - Settings panel opens on first run, then stays available under Settings.
 
-- **Hysteresis slider**
-  - Adjustable hysteresis to reduce flicker near thresholds.
+- **Hysteresis + thresholds**
+  - Hysteresis slider to reduce flicker near thresholds.
+  - **Default hysteresis set to `0.04`**.
+  - Threshold derivation tweaks (green/red spans derived from calibrated range fractions).
 
-- **Character packs system**
+- **Quiet streak reward**
+  - Toggleable quiet streak reward meter.
+
+- **Character packs**
   - Characters load from `characters/index.json`.
+  - **Teacher: Manage packs** UI to override character packs via JSON (local-only).
 
 - **Teacher lock settings (PIN)**
   - Prevents students from changing calibration/settings.
 
 - **Offline caching**
   - Service worker caches assets for offline use after first load.
+
+- **School IT deployment docs**
+  - Chromebook / Google Workspace checklist: `docs/schools-it-checklist.md`
