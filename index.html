@@ -105,6 +105,27 @@
     }
     .dot{width:10px; height:10px; border-radius:50%}
 
+    /* Speech bubble */
+    .bubble{
+      position:absolute;
+      left:14px;
+      top:54px;
+      max-width:min(520px, 70%);
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(18,26,51,.92);
+      border:1px solid var(--stroke);
+      box-shadow: 0 18px 50px rgba(0,0,0,.45);
+      color:var(--text);
+      font-weight:700;
+      transform: translateY(0);
+      opacity:1;
+      transition: opacity 160ms ease, transform 160ms ease;
+      pointer-events:none;
+    }
+    .bubble.hide{ opacity:0; transform: translateY(-6px); }
+    .bubble small{ display:block; margin-top:4px; color:var(--muted); font-weight:600; }
+
     /* Creature */
     .creatureWrap{position:relative; width:min(520px, 78%); height:min(520px, 78%);} 
     .creature{
@@ -251,6 +272,27 @@
               <label for="chkStreak"><b>Show quiet streak reward</b> (10s in Green)</label>
             </div>
 
+            <div class="toggleRow">
+              <input type="checkbox" id="chkBubbles" />
+              <label for="chkBubbles"><b>Encouragement bubbles</b> (in Green)</label>
+            </div>
+
+            <div class="slider">
+              <label for="selBubbleMode"><b>Bubble text</b></label>
+              <select id="selBubbleMode" style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--stroke); background:rgba(255,255,255,.06); color:var(--text)">
+                <option value="defaults">Use defaults</option>
+                <option value="both">Defaults + custom</option>
+                <option value="custom">Custom only</option>
+              </select>
+              <div style="text-align:right"><button id="btnTestBubble" style="padding:8px 10px; font-size:12px;">Test</button></div>
+            </div>
+
+            <div class="slider" style="grid-template-columns: 120px 1fr 60px; align-items:start">
+              <label for="taBubbleCustom"><b>Custom bubbles</b></label>
+              <textarea id="taBubbleCustom" placeholder="One per line" style="width:100%; min-height:90px; padding:10px 12px; border-radius:12px; border:1px solid var(--stroke); background:rgba(0,0,0,.18); color:var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace; font-size:12px;"></textarea>
+              <div></div>
+            </div>
+
             <div class="slider">
               <label for="sSmooth"><b>Smoothing</b></label>
               <input id="sSmooth" type="range" min="0.02" max="0.40" step="0.01" value="0.10" />
@@ -264,8 +306,8 @@
 
             <div class="slider">
               <label for="sHyst"><b>Hysteresis</b></label>
-              <input id="sHyst" type="range" min="0" max="0.20" step="0.01" value="0.08" />
-              <div><span id="tHyst">0.08</span></div>
+              <input id="sHyst" type="range" min="0" max="0.20" step="0.01" value="0.04" />
+              <div><span id="tHyst">0.04</span></div>
             </div>
 
             <div class="slider">
@@ -300,6 +342,8 @@
         <div class="meter" title="noise level">
           <div class="fill" id="meterFill"></div>
         </div>
+
+        <div class="bubble hide" id="bubble"><span id="bubbleText"></span></div>
 
         <div class="stageInner">
           <div class="creatureWrap">
@@ -396,6 +440,13 @@ window.addEventListener('appinstalled', () => {
     zoneLabel: document.getElementById('zoneLabel'),
     zoneDot: document.getElementById('zoneDot'),
     zoneText: document.getElementById('zoneText'),
+    bubble: document.getElementById('bubble'),
+    bubbleText: document.getElementById('bubbleText'),
+
+    chkBubbles: document.getElementById('chkBubbles'),
+    selBubbleMode: document.getElementById('selBubbleMode'),
+    taBubbleCustom: document.getElementById('taBubbleCustom'),
+    btnTestBubble: document.getElementById('btnTestBubble'),
 
     quickStart: document.getElementById('quickStart'),
     btnQSclose: document.getElementById('btnQSclose'),
@@ -593,7 +644,24 @@ window.addEventListener('appinstalled', () => {
 
     // rewards
     streakEnabled: true,
+
+    // encouragement bubbles
+    bubblesEnabled: false,
+    bubbleMode: 'defaults', // defaults | both | custom
+    bubbleCustom: '', // newline-separated
   };
+
+  const DEFAULT_BUBBLES = [
+    'Great job!',
+    'Keep it up!',
+    'How far are you on your task?',
+    'Show me how far you’ve gotten!',
+    'Nice quiet working.',
+  ];
+
+  let bubbleVisibleUntil = 0;
+  let nextBubbleAt = 0;
+
 
   function loadSettings(){
     try{
@@ -607,6 +675,9 @@ window.addEventListener('appinstalled', () => {
       if(typeof s.hysteresisPct === 'number') state.hysteresisPct = clamp(s.hysteresisPct, 0, 0.20);
       if(typeof s.zoneHoldMs === 'number') state.zoneHoldMs = clamp(s.zoneHoldMs, 0, 180_000);
       if(typeof s.streakEnabled === 'boolean') state.streakEnabled = s.streakEnabled;
+      if(typeof s.bubblesEnabled === 'boolean') state.bubblesEnabled = s.bubblesEnabled;
+      if(typeof s.bubbleMode === 'string') state.bubbleMode = s.bubbleMode;
+      if(typeof s.bubbleCustom === 'string') state.bubbleCustom = s.bubbleCustom;
     }catch(e){/* ignore */}
   }
   function saveSettings(){
@@ -618,6 +689,9 @@ window.addEventListener('appinstalled', () => {
       hysteresisPct: state.hysteresisPct,
       zoneHoldMs: state.zoneHoldMs,
       streakEnabled: !!state.streakEnabled,
+      bubblesEnabled: !!state.bubblesEnabled,
+      bubbleMode: state.bubbleMode,
+      bubbleCustom: state.bubbleCustom,
     };
     localStorage.setItem(STORE_KEY, JSON.stringify(s));
   }
@@ -635,6 +709,12 @@ window.addEventListener('appinstalled', () => {
     state.sensitivity = 1.2;
     state.hysteresisPct = 0.04;
     state.zoneHoldMs = 60_000;
+    state.bubblesEnabled = false;
+    state.bubbleMode = 'defaults';
+    state.bubbleCustom = '';
+    bubbleVisibleUntil = 0;
+    scheduleNextBubble(8_000);
+
     state.currentZone = null;
     state.pendingZone = null;
     state.pendingSince = 0;
@@ -646,6 +726,48 @@ window.addEventListener('appinstalled', () => {
 
   function msg(t){
     els.calMsg.textContent = t;
+  }
+
+  function parseCustomBubbles(){
+    return (state.bubbleCustom || '')
+      .split(/\r?\n/)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .slice(0, 80);
+  }
+
+  function pickBubbleText(){
+    const custom = parseCustomBubbles();
+    let pool = [];
+    if(state.bubbleMode === 'custom') pool = custom;
+    else if(state.bubbleMode === 'both') pool = [...DEFAULT_BUBBLES, ...custom];
+    else pool = DEFAULT_BUBBLES;
+
+    if(pool.length === 0) pool = DEFAULT_BUBBLES;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function hideBubble(){
+    if(!els.bubble) return;
+    els.bubble.classList.add('hide');
+  }
+
+  function showBubble(text, ms = 4500){
+    if(!els.bubble || !els.bubbleText) return;
+    els.bubbleText.textContent = text;
+    els.bubble.classList.remove('hide');
+    bubbleVisibleUntil = performance.now() + ms;
+    // auto-hide
+    setTimeout(() => {
+      if(performance.now() >= bubbleVisibleUntil) hideBubble();
+    }, ms + 10);
+  }
+
+  function scheduleNextBubble(fromNowMs = 0){
+    const baseMin = 45_000;
+    const baseMax = 90_000;
+    const jitter = baseMin + Math.random() * (baseMax - baseMin);
+    nextBubbleAt = performance.now() + fromNowMs + jitter;
   }
 
   // --- Settings lock (teacher mode) ---
@@ -699,7 +821,7 @@ window.addEventListener('appinstalled', () => {
 
     // Disable settings controls while locked
     const disable = locked;
-    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.sHold, els.chkStreak, els.charPick, els.btnReset, els.btnPackAdmin].forEach(el => {
+    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.sHold, els.chkStreak, els.chkBubbles, els.selBubbleMode, els.taBubbleCustom, els.btnTestBubble, els.charPick, els.btnReset, els.btnPackAdmin].forEach(el => {
       if(el) el.disabled = disable;
     });
 
@@ -725,6 +847,10 @@ window.addEventListener('appinstalled', () => {
     els.vLoudBase.textContent = (state.loud==null) ? '—' : state.loud.toFixed(3);
     if(els.chkStreak) els.chkStreak.checked = !!state.streakEnabled;
     if(els.streakStat) els.streakStat.style.display = state.streakEnabled ? '' : 'none';
+
+    if(els.chkBubbles) els.chkBubbles.checked = !!state.bubblesEnabled;
+    if(els.selBubbleMode) els.selBubbleMode.value = state.bubbleMode || 'defaults';
+    if(els.taBubbleCustom) els.taBubbleCustom.value = state.bubbleCustom || '';
   }
 
   async function start(){
@@ -817,6 +943,9 @@ window.addEventListener('appinstalled', () => {
   let streakMs = 0;
   let lastTickAt = performance.now();
 
+  // Bubble timers
+  scheduleNextBubble(5_000);
+
   function updateCreature(level){
     const now = performance.now();
     const dt = Math.min(250, now - lastTickAt);
@@ -869,6 +998,20 @@ window.addEventListener('appinstalled', () => {
     const x = (1 - prog) * 22 + prog * (-30);
     if(els.creatureHost){
       els.creatureHost.style.transform = `translateY(-50%) translateX(${x}%)`;
+    }
+
+    // Encouragement bubbles (Green + fully out)
+    const fullyOut = prog >= 0.96;
+    if(state.bubblesEnabled && zone === 'Green' && fullyOut){
+      if(performance.now() >= bubbleVisibleUntil) hideBubble();
+      if(performance.now() >= nextBubbleAt && performance.now() >= bubbleVisibleUntil){
+        showBubble(pickBubbleText());
+        scheduleNextBubble();
+      }
+    } else {
+      // Not eligible: hide once current bubble expires and push next bubble out a bit
+      if(performance.now() >= bubbleVisibleUntil) hideBubble();
+      nextBubbleAt = Math.max(nextBubbleAt, performance.now() + 15_000);
     }
 
     const creature = currentCreature();
@@ -1097,6 +1240,34 @@ window.addEventListener('appinstalled', () => {
     state.streakEnabled = !!els.chkStreak.checked;
     saveSettings();
     applyUIFromState();
+  });
+
+  els.chkBubbles.addEventListener('change', () => {
+    if(isLocked()) { applyUIFromState(); return; }
+    state.bubblesEnabled = !!els.chkBubbles.checked;
+    saveSettings();
+    // reset timers so it doesn’t immediately spam
+    bubbleVisibleUntil = 0;
+    scheduleNextBubble(8_000);
+  });
+
+  els.selBubbleMode.addEventListener('change', () => {
+    if(isLocked()) { applyUIFromState(); return; }
+    state.bubbleMode = els.selBubbleMode.value;
+    saveSettings();
+  });
+
+  els.taBubbleCustom.addEventListener('input', () => {
+    if(isLocked()) { applyUIFromState(); return; }
+    state.bubbleCustom = els.taBubbleCustom.value;
+    saveSettings();
+  });
+
+  els.btnTestBubble.addEventListener('click', (e) => {
+    e.preventDefault();
+    if(isLocked()) return;
+    showBubble(pickBubbleText(), 3500);
+    scheduleNextBubble(15_000);
   });
 
   els.sSensitivity.addEventListener('input', () => {
