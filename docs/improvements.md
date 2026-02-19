@@ -21,6 +21,12 @@ Principles
   - Add cooldown (e.g. 45–90s with jitter) so it doesn’t spam.
   - Save custom lines in `localStorage`.
 
+- **Overlay mode (on top of other programs)**: explore ways to run Quiet Koala as an always-on-top overlay while other apps are in use (e.g. Slides, videos, timers).
+  - Likely approaches:
+    - OS/windowed wrapper (Electron/Tauri) with "Always on top"
+    - Picture-in-Picture style mode (where supported)
+    - Dedicated display (secondary screen) guidance
+
 ### Audio / stability (testing + tuning)
 - Keep tuning defaults based on classroom testing (zone delay, hysteresis, thresholds).
 
