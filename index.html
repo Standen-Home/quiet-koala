@@ -316,7 +316,11 @@
               <div><span id="tHold">60</span>s</div>
             </div>
 
-            <div class="help">These are stored <b>locally</b> on this device (localStorage).</div>
+            <div class="toggleRow" style="justify-content:space-between; flex-wrap:wrap">
+              <div><b>Overlay</b> (floating window)</div>
+              <button id="btnOverlay" style="padding:8px 10px; font-size:12px;">Start overlay</button>
+            </div>
+            <div class="help">Overlay uses <b>Picture-in-Picture</b> when available (best on Mac/Windows Chrome/Edge). Stored settings are <b>local only</b> (localStorage).</div>
           </div>
         </details>
 
@@ -344,6 +348,10 @@
         </div>
 
         <div class="bubble hide" id="bubble"><span id="bubbleText"></span></div>
+
+        <!-- PiP overlay source (hidden). We draw a minimal overlay HUD to a canvas and stream it to video. -->
+        <canvas id="pipCanvas" width="640" height="360" style="display:none"></canvas>
+        <video id="pipVideo" playsinline muted style="display:none"></video>
 
         <div class="stageInner">
           <div class="creatureWrap">
@@ -447,6 +455,9 @@ window.addEventListener('appinstalled', () => {
     selBubbleMode: document.getElementById('selBubbleMode'),
     taBubbleCustom: document.getElementById('taBubbleCustom'),
     btnTestBubble: document.getElementById('btnTestBubble'),
+    btnOverlay: document.getElementById('btnOverlay'),
+    pipCanvas: document.getElementById('pipCanvas'),
+    pipVideo: document.getElementById('pipVideo'),
 
     quickStart: document.getElementById('quickStart'),
     btnQSclose: document.getElementById('btnQSclose'),
@@ -770,6 +781,112 @@ window.addEventListener('appinstalled', () => {
     nextBubbleAt = performance.now() + fromNowMs + jitter;
   }
 
+  // --- Overlay (Picture-in-Picture) ---
+  function pipSupported(){
+    return !!document.pictureInPictureEnabled && !!HTMLVideoElement?.prototype?.requestPictureInPicture;
+  }
+
+  function drawPipHud(){
+    if(!els.pipCanvas) return;
+    const ctx = els.pipCanvas.getContext('2d');
+    if(!ctx) return;
+
+    const w = els.pipCanvas.width;
+    const h = els.pipCanvas.height;
+
+    // background
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#0b1020';
+    ctx.fillRect(0, 0, w, h);
+
+    // title
+    ctx.fillStyle = 'rgba(233,236,255,0.92)';
+    ctx.font = '700 26px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+    ctx.fillText('Quiet Koala', 22, 40);
+
+    // zone
+    const zone = state.currentZone || '—';
+    const zoneColor = zone === 'Green' ? '#2dd4bf' : zone === 'Amber' ? '#fbbf24' : zone === 'Red' ? '#fb7185' : 'rgba(169,178,230,0.9)';
+    ctx.fillStyle = zoneColor;
+    ctx.beginPath();
+    ctx.arc(34, 82, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(233,236,255,0.92)';
+    ctx.font = '800 30px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+    ctx.fillText(String(zone), 56, 92);
+
+    // meter
+    const pad = 22;
+    const barY = 126;
+    const barH = 18;
+    const barW = w - pad * 2;
+    ctx.fillStyle = 'rgba(255,255,255,0.10)';
+    roundRect(ctx, pad, barY, barW, barH, 999);
+    ctx.fill();
+
+    // compute pct similar to main meter
+    const q = (state.quiet==null) ? 0.03 : state.quiet;
+    const l = (state.loud==null) ? 0.12 : state.loud;
+    const range = Math.max(0.05, (Math.max(q,l) - Math.min(q,l)));
+    const level = state.smooth || 0;
+    const pct = clamp(((level - Math.min(q,l)) / range), 0, 1.2);
+
+    const fillW = Math.max(6, Math.min(barW, barW * pct));
+    ctx.fillStyle = 'rgba(45,212,191,0.85)';
+    if(pct > 0.55) ctx.fillStyle = 'rgba(251,191,36,0.90)';
+    if(pct > 0.85) ctx.fillStyle = 'rgba(251,113,133,0.90)';
+    roundRect(ctx, pad, barY, fillW, barH, 999);
+    ctx.fill();
+
+    // caption
+    ctx.fillStyle = 'rgba(169,178,230,0.95)';
+    ctx.font = '650 16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+    ctx.fillText(`Level: ${level.toFixed(3)}`, pad, barY + 48);
+
+    // hint
+    ctx.fillStyle = 'rgba(169,178,230,0.85)';
+    ctx.font = '600 14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+    ctx.fillText('PiP overlay • keep this on top while using other apps', pad, h - 18);
+  }
+
+  function roundRect(ctx, x, y, w, h, r){
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w, y, x+w, y+h, rr);
+    ctx.arcTo(x+w, y+h, x, y+h, rr);
+    ctx.arcTo(x, y+h, x, y, rr);
+    ctx.arcTo(x, y, x+w, y, rr);
+    ctx.closePath();
+  }
+
+  async function startOverlay(){
+    if(!pipSupported()){
+      msg('Overlay not supported in this browser. Try Chrome/Edge on Mac/Windows.');
+      return;
+    }
+    if(!els.pipCanvas || !els.pipVideo) return;
+
+    // Create a video stream from canvas
+    const stream = els.pipCanvas.captureStream(30);
+    els.pipVideo.srcObject = stream;
+    await els.pipVideo.play();
+
+    // Start PiP
+    await els.pipVideo.requestPictureInPicture();
+    els.btnOverlay.textContent = 'Stop overlay';
+  }
+
+  async function stopOverlay(){
+    try{
+      if(document.pictureInPictureElement){
+        await document.exitPictureInPicture();
+      }
+    }catch(_){/* ignore */}
+    if(els.btnOverlay) els.btnOverlay.textContent = 'Start overlay';
+  }
+
   // --- Settings lock (teacher mode) ---
   function isLocked(){
     return localStorage.getItem(STORE_KEY + '.locked') === '1';
@@ -996,6 +1113,11 @@ window.addEventListener('appinstalled', () => {
 
     // Map level to a progress (0..1) where 1 = fully out.
     const prog = clamp((redT - level) / (redT - greenT), 0, 1);
+
+    // Update PiP overlay HUD (if active)
+    if(document.pictureInPictureElement){
+      drawPipHud();
+    }
 
     // Creature slides from behind the tree.
     const x = (1 - prog) * 22 + prog * (-30);
@@ -1271,6 +1393,21 @@ window.addEventListener('appinstalled', () => {
     if(isLocked()) return;
     showBubble(pickBubbleText(), 3500);
     scheduleNextBubble(15_000);
+  });
+
+  els.btnOverlay.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if(document.pictureInPictureElement){
+      await stopOverlay();
+      return;
+    }
+    // Draw once before starting so the first frame isn’t blank
+    drawPipHud();
+    await startOverlay();
+  });
+
+  els.pipVideo?.addEventListener('leavepictureinpicture', () => {
+    if(els.btnOverlay) els.btnOverlay.textContent = 'Start overlay';
   });
 
   els.sSensitivity.addEventListener('input', () => {
