@@ -10,7 +10,14 @@ This is a **browser-first** build designed for **Chromebooks** and classroom dis
 - `service-worker.js` — offline cache (works after first load)
 - `icons/` — app icons (placeholder for now)
 
-## Run locally (recommended for mic permissions)
+## Easiest way for teachers to run it (recommended)
+**Teachers should not need to run a server.** The intended plan is:
+- Host Quiet Koala as a normal website on **HTTPS** (school domain, Netlify/Vercel, etc.)
+- Teachers open a URL (e.g. `https://quietkoala.school.nz`) and optionally **Install** it as a PWA
+
+This still works with all recent changes (zone delay, bubbles, overlay button, etc.) because everything is browser-based and settings are stored locally.
+
+## Run locally (for development / testing)
 Microphone access usually requires a **secure context**:
 - ✅ `https://…` (best)
 - ✅ `http://localhost:PORT` (local dev)
@@ -35,13 +42,15 @@ python3 -m http.server 8000
 ```
 
 ## Use in the classroom
-1. Click **Start / Allow Microphone**
-2. Click **Calibrate QUIET (10s)** (get your target “quiet working” level)
-3. Click **Calibrate TOO LOUD (5s)** (have students talk at your “too loud” level)
-4. Pick a character (from the pack dropdown)
-5. Optional:
-   - Adjust **Smoothing** and **Sensitivity**
+1. Open the site (preferably the installed PWA) in **Chrome or Edge**
+2. Click **Start / Allow Microphone**
+3. Click **Calibrate QUIET (10s)** (get your target “quiet working” level)
+4. Click **Calibrate TOO LOUD (5s)** (have students talk at your “too loud” level)
+5. Pick a character (from the pack dropdown)
+6. Optional:
+   - Adjust Settings (zone delay, smoothing, sensitivity, etc.)
    - Click **Lock settings** (teacher PIN) so students can’t change thresholds
+   - **Overlay mode**: in Settings, click **Start overlay** to open a floating Picture-in-Picture window (useful on Mac/Windows)
 
 Settings are stored per-device using `localStorage`.
 A “quiet streak” appears after 10 seconds continuously in the green zone.
