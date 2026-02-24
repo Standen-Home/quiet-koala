@@ -968,6 +968,18 @@ window.addEventListener('appinstalled', () => {
     if(els.chkBubbles) els.chkBubbles.checked = !!state.bubblesEnabled;
     if(els.selBubbleMode) els.selBubbleMode.value = state.bubbleMode || 'defaults';
     if(els.taBubbleCustom) els.taBubbleCustom.value = state.bubbleCustom || '';
+
+    // Overlay (PiP) is not available everywhere (e.g. iPad/iPhone Safari).
+    if(els.btnOverlay){
+      const ok = pipSupported();
+      els.btnOverlay.disabled = !ok;
+      els.btnOverlay.title = ok ? 'Start a floating overlay window (Picture-in-Picture)' : 'Overlay not supported in this browser. Try Chrome/Edge on Mac/Windows.';
+      if(!ok){
+        els.btnOverlay.textContent = 'Overlay unsupported';
+      } else {
+        els.btnOverlay.textContent = document.pictureInPictureElement ? 'Stop overlay' : 'Start overlay';
+      }
+    }
   }
 
   async function start(){
