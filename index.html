@@ -404,9 +404,15 @@ let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  // Show Install CTA once the prompt becomes available.
+  // Show Install CTA once the prompt becomes available (unless teacher hid it).
   const btn = document.getElementById('btnInstall');
-  if(btn) btn.style.display = 'inline-flex';
+  try{
+    const hiddenUntil = parseInt(localStorage.getItem('quietKoala.v1.install.hideUntil') || '0', 10) || 0;
+    const suppressed = hiddenUntil && Date.now() < hiddenUntil;
+    if(btn) btn.style.display = suppressed ? 'none' : 'inline-flex';
+  }catch(_){
+    if(btn) btn.style.display = 'inline-flex';
+  }
 });
 
 window.addEventListener('appinstalled', () => {
@@ -587,6 +593,7 @@ window.addEventListener('appinstalled', () => {
   const QS_DISMISS_KEY = STORE_KEY + '.quickStart.dismissed';
   const SETTINGS_HINT_SHOWN_KEY = STORE_KEY + '.settingsHintShown';
   const PACK_OVERRIDE_KEY = STORE_KEY + '.characterIndexOverride';
+  const INSTALL_HIDE_UNTIL_KEY = STORE_KEY + '.install.hideUntil';
 
   function isIOS(){
     // iOS Safari (no beforeinstallprompt); install via Share → Add to Home Screen.
@@ -608,6 +615,21 @@ window.addEventListener('appinstalled', () => {
 
   function setQSDismissed(v){
     localStorage.setItem(QS_DISMISS_KEY, v ? '1' : '0');
+  }
+
+  function getInstallHideUntil(){
+    const raw = localStorage.getItem(INSTALL_HIDE_UNTIL_KEY);
+    const n = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function setInstallHideUntil(tsMs){
+    localStorage.setItem(INSTALL_HIDE_UNTIL_KEY, String(tsMs || 0));
+  }
+
+  function isInstallSuppressed(){
+    const until = getInstallHideUntil();
+    return until && Date.now() < until;
   }
 
   function getSettingsHintShown(){
@@ -1341,9 +1363,18 @@ window.addEventListener('appinstalled', () => {
       return;
     }
 
+    // If a teacher intentionally hid the CTA (e.g. they dismissed the prompt), let them re-open via Quick start.
+    if(isInstallSuppressed()){
+      msg('Install prompt hidden for now (per this device). Open Quick start if you need install steps.');
+      return;
+    }
+
     if(!deferredPrompt){
       if(isIOS()){
         alert('To install on iPad/iPhone:\n\n1) Tap the Share button in Safari\n2) Tap “Add to Home Screen”\n\nThen reopen Quiet Koala from your home screen for the best offline experience.');
+        // Hide the CTA for a week so it doesn’t keep nagging on iOS.
+        setInstallHideUntil(Date.now() + 7*24*60*60*1000);
+        if(els.btnInstall) els.btnInstall.style.display = 'none';
         return;
       }
 
@@ -1352,7 +1383,15 @@ window.addEventListener('appinstalled', () => {
     }
 
     deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
+    const choice = await deferredPrompt.userChoice;
+
+    // If the user dismisses the install prompt, hide the CTA for a week.
+    if(choice && choice.outcome === 'dismissed'){
+      setInstallHideUntil(Date.now() + 7*24*60*60*1000);
+      if(els.btnInstall) els.btnInstall.style.display = 'none';
+      msg('Install dismissed — hiding the Install button for a week on this device.');
+    }
+
     deferredPrompt = null;
   });
 
@@ -1472,7 +1511,7 @@ window.addEventListener('appinstalled', () => {
   applyLockState();
 
   // Install CTA visibility (will also be shown when beforeinstallprompt fires)
-  if(isInstalled()){
+  if(isInstalled() || isInstallSuppressed()){
     els.btnInstall.style.display = 'none';
   } else {
     // iOS Safari never fires beforeinstallprompt; keep CTA visible to show instructions.
