@@ -664,6 +664,7 @@ window.addEventListener('appinstalled', () => {
     // zone behavior
     hysteresisPct: 0.04, // fraction of calibrated range used as a deadband
     zoneHoldMs: 60_000,  // must stay in a new zone for this long before switching
+    redLatchMs: 1500,    // after entering Red, stay Red briefly to avoid Amber↔Red flicker
 
     // time-based zone debounce
     pendingZone: null,
@@ -707,6 +708,7 @@ window.addEventListener('appinstalled', () => {
       if(typeof s.loud === 'number') state.loud = s.loud;
       if(typeof s.hysteresisPct === 'number') state.hysteresisPct = clamp(s.hysteresisPct, 0, 0.20);
       if(typeof s.zoneHoldMs === 'number') state.zoneHoldMs = clamp(s.zoneHoldMs, 0, 180_000);
+      if(typeof s.redLatchMs === 'number') state.redLatchMs = clamp(s.redLatchMs, 0, 10_000);
       if(typeof s.streakEnabled === 'boolean') state.streakEnabled = s.streakEnabled;
       if(typeof s.bubblesEnabled === 'boolean') state.bubblesEnabled = s.bubblesEnabled;
       if(typeof s.bubbleMode === 'string') state.bubbleMode = s.bubbleMode;
@@ -721,6 +723,7 @@ window.addEventListener('appinstalled', () => {
       loud: state.loud,
       hysteresisPct: state.hysteresisPct,
       zoneHoldMs: state.zoneHoldMs,
+      redLatchMs: state.redLatchMs,
       streakEnabled: !!state.streakEnabled,
       bubblesEnabled: !!state.bubblesEnabled,
       bubbleMode: state.bubbleMode,
@@ -742,6 +745,7 @@ window.addEventListener('appinstalled', () => {
     state.sensitivity = 1.2;
     state.hysteresisPct = 0.04;
     state.zoneHoldMs = 60_000;
+    state.redLatchMs = 1500;
     state.bubblesEnabled = false;
     state.bubbleMode = 'defaults';
     state.bubbleCustom = '';
@@ -1100,6 +1104,9 @@ window.addEventListener('appinstalled', () => {
   let streakMs = 0;
   let lastTickAt = performance.now();
 
+  // Red latch: once we enter Red, keep it for a short window to avoid flicker.
+  let redLatchUntil = 0;
+
   // Bubble timers
   scheduleNextBubble(5_000);
 
@@ -1109,13 +1116,21 @@ window.addEventListener('appinstalled', () => {
     lastTickAt = now;
 
     const prevZone = state.currentZone;
-    const { zone: candidateZone, greenT, redT, hzRed } = zoneFromLevel(level, prevZone);
+    const { zone: candidateZoneRaw, greenT, redT, hzRed } = zoneFromLevel(level, prevZone);
+
+    // Red latch: if we very recently entered Red, keep it for a short window.
+    // (Amber↔Red flicker is the most distracting in classrooms.)
+    let candidateZone = candidateZoneRaw;
+    if(prevZone === 'Red' && performance.now() < redLatchUntil){
+      candidateZone = 'Red';
+    }
 
     // Time-based debounce: require the candidate zone to persist for zoneHoldMs.
     // Red is handled with a short confirmation window to reduce Amber↔Red flicker
     // caused by brief peaks (e.g. a single clap).
     if(prevZone == null){
       state.currentZone = candidateZone;
+      if(candidateZone === 'Red') redLatchUntil = now + state.redLatchMs;
       state.pendingZone = null;
       state.pendingSince = 0;
     } else if(candidateZone === prevZone){
@@ -1134,6 +1149,7 @@ window.addEventListener('appinstalled', () => {
       }
       if(snapNow || (now - state.pendingSince) >= holdMs){
         state.currentZone = candidateZone;
+        if(candidateZone === 'Red') redLatchUntil = now + state.redLatchMs;
         state.pendingZone = null;
         state.pendingSince = 0;
       }
