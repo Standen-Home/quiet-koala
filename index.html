@@ -176,9 +176,12 @@
   <div class="wrap">
     <div id="quickStart" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:50;">
       <div style="max-width:720px; margin:6vh auto; background:rgba(18,26,51,.92); border:1px solid var(--stroke); border-radius:16px; padding:18px; box-shadow: 0 20px 60px rgba(0,0,0,.5);">
-        <div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
           <div style="font-weight:800; font-size:18px;">Quick start (teacher)</div>
-          <button id="btnQSclose">Close</button>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button id="btnQSinstall" style="display:none" title="Install Quiet Koala for offline use">Install app</button>
+            <button id="btnQSclose">Close</button>
+          </div>
         </div>
         <ol style="margin:12px 0 0 18px; color:var(--text)">
           <li>Click <b>Start / Allow Microphone</b></li>
@@ -418,12 +421,17 @@ window.addEventListener('beforeinstallprompt', (e) => {
   deferredPrompt = e;
   // Show Install CTA once the prompt becomes available (unless teacher hid it).
   const btn = document.getElementById('btnInstall');
+  const qsBtn = document.getElementById('btnQSinstall');
+  const qs = document.getElementById('quickStart');
   try{
     const hiddenUntil = parseInt(localStorage.getItem('quietKoala.v1.install.hideUntil') || '0', 10) || 0;
     const suppressed = hiddenUntil && Date.now() < hiddenUntil;
     if(btn) btn.style.display = suppressed ? 'none' : 'inline-flex';
+    // If the quick-start modal is already open, show its install button too.
+    if(qsBtn) qsBtn.style.display = (!suppressed && qs && qs.style.display !== 'none') ? 'inline-flex' : 'none';
   }catch(_){
     if(btn) btn.style.display = 'inline-flex';
+    if(qsBtn) qsBtn.style.display = (qs && qs.style.display !== 'none') ? 'inline-flex' : 'none';
   }
 });
 
@@ -484,6 +492,7 @@ window.addEventListener('appinstalled', () => {
     chkQSdontShow: document.getElementById('chkQSdontShow'),
     btnQuickStart: document.getElementById('btnQuickStart'),
     btnInstall: document.getElementById('btnInstall'),
+    btnQSinstall: document.getElementById('btnQSinstall'),
     settingsPanel: document.getElementById('settingsPanel'),
 
     // character pack admin
@@ -1324,6 +1333,13 @@ window.addEventListener('appinstalled', () => {
 
   function openQuickStart(){
     if(els.chkQSdontShow) els.chkQSdontShow.checked = getQSDismissed();
+
+    // Show an install CTA inside Quick start when relevant (helps teachers find it).
+    if(els.btnQSinstall){
+      const show = !isInstalled() && !isInstallSuppressed() && (deferredPrompt || isIOS());
+      els.btnQSinstall.style.display = show ? 'inline-flex' : 'none';
+    }
+
     els.quickStart.style.display = 'block';
   }
 
@@ -1408,16 +1424,15 @@ window.addEventListener('appinstalled', () => {
     }
   });
 
-  // Install button (PWA)
-  els.btnInstall.addEventListener('click', async () => {
+  async function doInstall(){
     if(isInstalled()){
       msg('Already installed (standalone).');
       return;
     }
 
-    // If a teacher intentionally hid the CTA (e.g. they dismissed the prompt), let them re-open via Quick start.
+    // If a teacher intentionally hid the CTA (e.g. they dismissed the prompt), keep it quiet.
     if(isInstallSuppressed()){
-      msg('Install prompt hidden for now (per this device). Open Quick start if you need install steps.');
+      msg('Install prompt hidden for now (per this device).');
       return;
     }
 
@@ -1427,6 +1442,7 @@ window.addEventListener('appinstalled', () => {
         // Hide the CTA for a week so it doesn’t keep nagging on iOS.
         setInstallHideUntil(Date.now() + 7*24*60*60*1000);
         if(els.btnInstall) els.btnInstall.style.display = 'none';
+        if(els.btnQSinstall) els.btnQSinstall.style.display = 'none';
         return;
       }
 
@@ -1441,11 +1457,16 @@ window.addEventListener('appinstalled', () => {
     if(choice && choice.outcome === 'dismissed'){
       setInstallHideUntil(Date.now() + 7*24*60*60*1000);
       if(els.btnInstall) els.btnInstall.style.display = 'none';
+      if(els.btnQSinstall) els.btnQSinstall.style.display = 'none';
       msg('Install dismissed — hiding the Install button for a week on this device.');
     }
 
     deferredPrompt = null;
-  });
+  }
+
+  // Install button (PWA)
+  els.btnInstall.addEventListener('click', doInstall);
+  els.btnQSinstall?.addEventListener('click', (e) => { e.preventDefault(); doInstall(); });
 
   els.btnLock.addEventListener('click', async () => {
     if(isLocked()){
@@ -1569,6 +1590,8 @@ window.addEventListener('appinstalled', () => {
     // iOS Safari never fires beforeinstallprompt; keep CTA visible to show instructions.
     els.btnInstall.style.display = (deferredPrompt || isIOS()) ? 'inline-flex' : 'none';
   }
+  // Quick start contains its own install CTA (set when opened), but keep it hidden by default.
+  if(els.btnQSinstall) els.btnQSinstall.style.display = 'none';
 
   // Auto-show quick start on first run (unless dismissed / installed)
   if(!isInstalled() && !getQSDismissed()){
