@@ -264,6 +264,7 @@
           <div class="stat"><div class="k">Zone</div><div class="v" id="vZone">—</div></div>
           <div class="stat"><div class="k">Quiet baseline</div><div class="v" id="vQuiet">—</div></div>
           <div class="stat"><div class="k">Too loud baseline</div><div class="v" id="vLoudBase">—</div></div>
+          <div class="stat"><div class="k">Zone thresholds</div><div class="v" id="vThresh">—</div></div>
           <div class="stat" id="streakStat">
             <div class="k">Quiet streak</div>
             <div class="v" id="vStreak">—</div>
@@ -457,6 +458,7 @@ window.addEventListener('appinstalled', () => {
     vZone: document.getElementById('vZone'),
     vQuiet: document.getElementById('vQuiet'),
     vLoudBase: document.getElementById('vLoudBase'),
+    vThresh: document.getElementById('vThresh'),
     streakStat: document.getElementById('streakStat'),
     vStreak: document.getElementById('vStreak'),
     streakFill: document.getElementById('streakFill'),
@@ -1232,6 +1234,9 @@ window.addEventListener('appinstalled', () => {
     // Labels
     els.vZone.textContent = zone;
     els.zoneDot.style.background = color;
+    if(els.vThresh){
+      els.vThresh.textContent = `G≤${greenT.toFixed(3)} / R≥${redT.toFixed(3)}`;
+    }
 
     const streakGoalSec = 10;
     const streakSec = Math.floor(streakMs / 1000);
