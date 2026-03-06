@@ -1242,7 +1242,9 @@ window.addEventListener('appinstalled', () => {
     const streakSec = Math.floor(streakMs / 1000);
 
     if(els.vStreak){
-      els.vStreak.textContent = state.streakEnabled ? (streakSec + "s") : "—";
+      if(!state.streakEnabled) els.vStreak.textContent = '—';
+      else if(streakSec < streakGoalSec) els.vStreak.textContent = `${streakSec}s / ${streakGoalSec}s`;
+      else els.vStreak.textContent = `${streakSec}s`;
     }
 
     if(els.streakFill && state.streakEnabled){
