@@ -1106,8 +1106,10 @@ window.addEventListener('appinstalled', () => {
     // - entering Red from Amber requires a bit more evidence
     // - exiting Red keeps a slightly smaller deadband so Red doesn't "stick" too long
     const hzRedBase  = clamp(range * state.hysteresisPct * 2.0, 0.0, 0.10);
-    const hzRedEnter = clamp(hzRedBase * 1.15, 0.0, 0.12);
-    const hzRedExit  = hzRedBase;
+    // Slightly stronger hysteresis around the Amber↔Red boundary.
+    // Goal: reduce flicker when the class hovers near the red threshold.
+    const hzRedEnter = clamp(hzRedBase * 1.30, 0.0, 0.12);
+    const hzRedExit  = clamp(hzRedBase * 1.10, 0.0, 0.12);
 
     // Naive zone
     let zone = (level <= greenT) ? 'Green' : (level >= redT) ? 'Red' : 'Amber';
@@ -1148,7 +1150,7 @@ window.addEventListener('appinstalled', () => {
     // Red latch: if we very recently entered Red, keep it for a short window.
     // (Amber↔Red flicker is the most distracting in classrooms.)
     let candidateZone = candidateZoneRaw;
-    if(prevZone === 'Red' && performance.now() < redLatchUntil){
+    if(prevZone === 'Red' && now < redLatchUntil){
       candidateZone = 'Red';
     }
 
