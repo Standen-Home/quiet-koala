@@ -243,6 +243,8 @@
           <button class="primary" id="btnStart">Start / Allow Microphone</button>
           <button id="btnFull">Full screen</button>
           <button id="btnLock">Lock settings</button>
+          <button id="btnExport">Export settings</button>
+          <button id="btnImport">Import settings</button>
           <button class="danger" id="btnReset">Reset settings</button>
         </div>
 
@@ -448,6 +450,8 @@ window.addEventListener('appinstalled', () => {
     btnStart: document.getElementById('btnStart'),
     btnFull: document.getElementById('btnFull'),
     btnLock: document.getElementById('btnLock'),
+    btnExport: document.getElementById('btnExport'),
+    btnImport: document.getElementById('btnImport'),
     btnReset: document.getElementById('btnReset'),
     btnCalm: document.getElementById('btnCalm'),
     btnLoud: document.getElementById('btnLoud'),
@@ -784,6 +788,61 @@ window.addEventListener('appinstalled', () => {
     msg('Settings reset. Recalibrate QUIET and TOO LOUD.');
   }
 
+  function sanitizeSettingsImport(obj){
+    // Import only the settings we explicitly support.
+    const s = {};
+    if(obj && typeof obj === 'object'){
+      if(typeof obj.alpha === 'number') s.alpha = clamp(obj.alpha, 0.02, 0.40);
+      if(typeof obj.sensitivity === 'number') s.sensitivity = clamp(obj.sensitivity, 0.5, 3.0);
+      if(typeof obj.quiet === 'number') s.quiet = obj.quiet;
+      if(typeof obj.loud === 'number') s.loud = obj.loud;
+      if(typeof obj.hysteresisPct === 'number') s.hysteresisPct = clamp(obj.hysteresisPct, 0, 0.20);
+      if(typeof obj.zoneHoldMs === 'number') s.zoneHoldMs = clamp(obj.zoneHoldMs, 0, 180_000);
+      if(typeof obj.redLatchMs === 'number') s.redLatchMs = clamp(obj.redLatchMs, 0, 10_000);
+      if(typeof obj.streakEnabled === 'boolean') s.streakEnabled = obj.streakEnabled;
+      if(typeof obj.bubblesEnabled === 'boolean') s.bubblesEnabled = obj.bubblesEnabled;
+      if(typeof obj.bubbleMode === 'string') s.bubbleMode = obj.bubbleMode;
+      if(typeof obj.bubbleCustom === 'string') s.bubbleCustom = obj.bubbleCustom;
+    }
+    return s;
+  }
+
+  async function exportSettingsToClipboard(){
+    if(isLocked()){
+      msg('Settings are locked. Unlock to export.');
+      return;
+    }
+    const raw = localStorage.getItem(STORE_KEY) || '{}';
+    try{
+      await navigator.clipboard?.writeText(raw);
+      msg('Settings copied to clipboard.');
+    }catch(e){
+      // Fallback: show a prompt so teachers can copy manually.
+      prompt('Copy these settings JSON (Ctrl/Cmd+C):', raw);
+      msg('Settings export shown.');
+    }
+  }
+
+  async function importSettingsFromPrompt(){
+    if(isLocked()){
+      msg('Settings are locked. Unlock to import.');
+      return;
+    }
+    const text = prompt('Paste settings JSON to import (this device only):');
+    if(!text) return;
+    try{
+      const obj = JSON.parse(text);
+      const clean = sanitizeSettingsImport(obj);
+      localStorage.setItem(STORE_KEY, JSON.stringify(clean));
+      loadSettings();
+      applyUIFromState();
+      msg('Imported settings (this device only).');
+    }catch(e){
+      alert('Invalid settings JSON.');
+      console.warn(e);
+    }
+  }
+
   function clamp(x,min,max){ return Math.max(min, Math.min(max, x)); }
 
   function msg(t){
@@ -989,7 +1048,7 @@ window.addEventListener('appinstalled', () => {
 
     // Disable settings controls while locked
     const disable = locked;
-    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.sHold, els.chkStreak, els.chkBubbles, els.selBubbleMode, els.taBubbleCustom, els.btnTestBubble, els.charPick, els.btnReset, els.btnPackAdmin].forEach(el => {
+    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.sHold, els.chkStreak, els.chkBubbles, els.selBubbleMode, els.taBubbleCustom, els.btnTestBubble, els.charPick, els.btnExport, els.btnImport, els.btnReset, els.btnPackAdmin].forEach(el => {
       if(el) el.disabled = disable;
     });
 
@@ -1336,6 +1395,8 @@ window.addEventListener('appinstalled', () => {
       await document.exitFullscreen?.();
     }
   });
+  els.btnExport?.addEventListener('click', exportSettingsToClipboard);
+  els.btnImport?.addEventListener('click', importSettingsFromPrompt);
   els.btnReset.addEventListener('click', resetSettings);
 
   function openQuickStart(){
