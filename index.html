@@ -330,8 +330,8 @@
 
             <div class="slider">
               <label for="sHold"><b>Zone delay</b></label>
-              <input id="sHold" type="range" min="0" max="180" step="5" value="60" />
-              <div><span id="tHold">60</span>s</div>
+              <input id="sHold" type="range" min="0" max="10" step="1" value="1" />
+              <div><span id="tHold">1</span>s</div>
             </div>
 
             <div class="toggleRow" style="justify-content:space-between; flex-wrap:wrap">
@@ -692,7 +692,7 @@ window.addEventListener('appinstalled', () => {
 
     // zone behavior
     hysteresisPct: 0.04, // fraction of calibrated range used as a deadband
-    zoneHoldMs: 60_000,  // must stay in a new zone for this long before switching
+    zoneHoldMs: 1000,    // ms: candidate zone must persist before switching (helps reduce flicker)
     redLatchMs: 1500,    // after entering Red, stay Red briefly to avoid Amber↔Red flicker
 
     // time-based zone debounce
@@ -736,7 +736,7 @@ window.addEventListener('appinstalled', () => {
       if(typeof s.quiet === 'number') state.quiet = s.quiet;
       if(typeof s.loud === 'number') state.loud = s.loud;
       if(typeof s.hysteresisPct === 'number') state.hysteresisPct = clamp(s.hysteresisPct, 0, 0.20);
-      if(typeof s.zoneHoldMs === 'number') state.zoneHoldMs = clamp(s.zoneHoldMs, 0, 180_000);
+      if(typeof s.zoneHoldMs === 'number') state.zoneHoldMs = clamp(s.zoneHoldMs, 0, 10_000);
       if(typeof s.redLatchMs === 'number') state.redLatchMs = clamp(s.redLatchMs, 0, 10_000);
       if(typeof s.streakEnabled === 'boolean') state.streakEnabled = s.streakEnabled;
       if(typeof s.bubblesEnabled === 'boolean') state.bubblesEnabled = s.bubblesEnabled;
@@ -773,7 +773,7 @@ window.addEventListener('appinstalled', () => {
     state.alpha = 0.10;
     state.sensitivity = 1.2;
     state.hysteresisPct = 0.04;
-    state.zoneHoldMs = 60_000;
+    state.zoneHoldMs = 1000;
     state.redLatchMs = 1500;
     state.bubblesEnabled = false;
     state.bubbleMode = 'defaults';
@@ -1625,7 +1625,7 @@ window.addEventListener('appinstalled', () => {
   els.sHold.addEventListener('input', () => {
     if(isLocked()) return;
     const sec = parseInt(els.sHold.value, 10) || 0;
-    state.zoneHoldMs = clamp(sec * 1000, 0, 180_000);
+    state.zoneHoldMs = clamp(sec * 1000, 0, 10_000);
     els.tHold.textContent = String(Math.round(state.zoneHoldMs / 1000));
     saveSettings();
   });
