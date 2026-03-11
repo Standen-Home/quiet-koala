@@ -323,9 +323,15 @@
             </div>
 
             <div class="slider">
-              <label for="sHyst"><b>Hysteresis</b></label>
+              <label for="sHyst"><b>Hysteresis (Green)</b></label>
               <input id="sHyst" type="range" min="0" max="0.20" step="0.01" value="0.04" />
               <div><span id="tHyst">0.04</span></div>
+            </div>
+
+            <div class="slider">
+              <label for="sHystRed"><b>Hysteresis (Red)</b></label>
+              <input id="sHystRed" type="range" min="0" max="0.30" step="0.01" value="0.08" />
+              <div><span id="tHystRed">0.08</span></div>
             </div>
 
             <div class="slider">
@@ -475,6 +481,8 @@ window.addEventListener('appinstalled', () => {
     tSensitivity: document.getElementById('tSensitivity'),
     sHyst: document.getElementById('sHyst'),
     tHyst: document.getElementById('tHyst'),
+    sHystRed: document.getElementById('sHystRed'),
+    tHystRed: document.getElementById('tHystRed'),
     sHold: document.getElementById('sHold'),
     tHold: document.getElementById('tHold'),
     calMsg: document.getElementById('calMsg'),
@@ -691,7 +699,10 @@ window.addEventListener('appinstalled', () => {
     loud: null,
 
     // zone behavior
-    hysteresisPct: 0.04, // fraction of calibrated range used as a deadband
+    // Fractions of the calibrated range used as deadbands.
+    // Green hysteresis helps avoid Green↔Amber flicker; Red hysteresis is usually a bit larger.
+    hysteresisGreenPct: 0.04,
+    hysteresisRedPct: 0.08,
     zoneHoldMs: 1000,    // ms: candidate zone must persist before switching (helps reduce flicker)
     redLatchMs: 1500,    // after entering Red, stay Red briefly to avoid Amber↔Red flicker
 
@@ -735,7 +746,14 @@ window.addEventListener('appinstalled', () => {
       if(typeof s.sensitivity === 'number') state.sensitivity = clamp(s.sensitivity, 0.5, 3.0);
       if(typeof s.quiet === 'number') state.quiet = s.quiet;
       if(typeof s.loud === 'number') state.loud = s.loud;
-      if(typeof s.hysteresisPct === 'number') state.hysteresisPct = clamp(s.hysteresisPct, 0, 0.20);
+      // Back-compat: older settings used a single hysteresisPct.
+      if(typeof s.hysteresisGreenPct === 'number') state.hysteresisGreenPct = clamp(s.hysteresisGreenPct, 0, 0.20);
+      if(typeof s.hysteresisRedPct === 'number') state.hysteresisRedPct = clamp(s.hysteresisRedPct, 0, 0.30);
+      if((typeof s.hysteresisGreenPct !== 'number' || typeof s.hysteresisRedPct !== 'number') && typeof s.hysteresisPct === 'number'){
+        const base = clamp(s.hysteresisPct, 0, 0.20);
+        if(typeof s.hysteresisGreenPct !== 'number') state.hysteresisGreenPct = base;
+        if(typeof s.hysteresisRedPct !== 'number') state.hysteresisRedPct = clamp(base * 2.0, 0, 0.30);
+      }
       if(typeof s.zoneHoldMs === 'number') state.zoneHoldMs = clamp(s.zoneHoldMs, 0, 10_000);
       if(typeof s.redLatchMs === 'number') state.redLatchMs = clamp(s.redLatchMs, 0, 10_000);
       if(typeof s.streakEnabled === 'boolean') state.streakEnabled = s.streakEnabled;
@@ -750,7 +768,10 @@ window.addEventListener('appinstalled', () => {
       sensitivity: state.sensitivity,
       quiet: state.quiet,
       loud: state.loud,
-      hysteresisPct: state.hysteresisPct,
+      hysteresisGreenPct: state.hysteresisGreenPct,
+      hysteresisRedPct: state.hysteresisRedPct,
+      // Keep legacy key for older builds (harmless).
+      hysteresisPct: state.hysteresisGreenPct,
       zoneHoldMs: state.zoneHoldMs,
       redLatchMs: state.redLatchMs,
       streakEnabled: !!state.streakEnabled,
@@ -772,7 +793,8 @@ window.addEventListener('appinstalled', () => {
     state.loud = null;
     state.alpha = 0.10;
     state.sensitivity = 1.2;
-    state.hysteresisPct = 0.04;
+    state.hysteresisGreenPct = 0.04;
+    state.hysteresisRedPct = 0.08;
     state.zoneHoldMs = 1000;
     state.redLatchMs = 1500;
     state.bubblesEnabled = false;
@@ -796,7 +818,14 @@ window.addEventListener('appinstalled', () => {
       if(typeof obj.sensitivity === 'number') s.sensitivity = clamp(obj.sensitivity, 0.5, 3.0);
       if(typeof obj.quiet === 'number') s.quiet = obj.quiet;
       if(typeof obj.loud === 'number') s.loud = obj.loud;
-      if(typeof obj.hysteresisPct === 'number') s.hysteresisPct = clamp(obj.hysteresisPct, 0, 0.20);
+      if(typeof obj.hysteresisGreenPct === 'number') s.hysteresisGreenPct = clamp(obj.hysteresisGreenPct, 0, 0.20);
+      if(typeof obj.hysteresisRedPct === 'number') s.hysteresisRedPct = clamp(obj.hysteresisRedPct, 0, 0.30);
+      // Back-compat: accept hysteresisPct as Green hysteresis.
+      if((typeof obj.hysteresisGreenPct !== 'number' || typeof obj.hysteresisRedPct !== 'number') && typeof obj.hysteresisPct === 'number'){
+        const base = clamp(obj.hysteresisPct, 0, 0.20);
+        if(typeof obj.hysteresisGreenPct !== 'number') s.hysteresisGreenPct = base;
+        if(typeof obj.hysteresisRedPct !== 'number') s.hysteresisRedPct = clamp(base * 2.0, 0, 0.30);
+      }
       if(typeof obj.zoneHoldMs === 'number') s.zoneHoldMs = clamp(obj.zoneHoldMs, 0, 180_000);
       if(typeof obj.redLatchMs === 'number') s.redLatchMs = clamp(obj.redLatchMs, 0, 10_000);
       if(typeof obj.streakEnabled === 'boolean') s.streakEnabled = obj.streakEnabled;
@@ -1048,7 +1077,7 @@ window.addEventListener('appinstalled', () => {
 
     // Disable settings controls while locked
     const disable = locked;
-    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.sHold, els.chkStreak, els.chkBubbles, els.selBubbleMode, els.taBubbleCustom, els.btnTestBubble, els.charPick, els.btnExport, els.btnImport, els.btnReset, els.btnPackAdmin].forEach(el => {
+    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.sHystRed, els.sHold, els.chkStreak, els.chkBubbles, els.selBubbleMode, els.taBubbleCustom, els.btnTestBubble, els.charPick, els.btnExport, els.btnImport, els.btnReset, els.btnPackAdmin].forEach(el => {
       if(el) el.disabled = disable;
     });
 
@@ -1063,8 +1092,12 @@ window.addEventListener('appinstalled', () => {
     els.sSensitivity.value = String(state.sensitivity);
     els.tSensitivity.textContent = state.sensitivity.toFixed(1);
     if(els.sHyst){
-      els.sHyst.value = String(state.hysteresisPct);
-      els.tHyst.textContent = state.hysteresisPct.toFixed(2);
+      els.sHyst.value = String(state.hysteresisGreenPct);
+      els.tHyst.textContent = state.hysteresisGreenPct.toFixed(2);
+    }
+    if(els.sHystRed){
+      els.sHystRed.value = String(state.hysteresisRedPct);
+      els.tHystRed.textContent = state.hysteresisRedPct.toFixed(2);
     }
     if(els.sHold){
       els.sHold.value = String(Math.round(state.zoneHoldMs / 1000));
@@ -1159,13 +1192,13 @@ window.addEventListener('appinstalled', () => {
     // Hysteresis margins: deadbands (as a fraction of calibrated range)
     // Higher = less flicker, but slower to respond.
     // We bias the Amber↔Red boundary more aggressively because flicker there is more noticeable.
-    const hzGreen = clamp(range * state.hysteresisPct, 0.0, 0.06);
+    const hzGreen = clamp(range * state.hysteresisGreenPct, 0.0, 0.06);
 
     // Use separate enter/exit margins for Red:
     // - entering Red from Amber requires a bit more evidence
     // - exiting Red keeps a slightly smaller deadband so Red doesn't "stick" too long
-    const hzRedBase  = clamp(range * state.hysteresisPct * 2.0, 0.0, 0.10);
-    const hzRedEnter = clamp(hzRedBase * 1.15, 0.0, 0.12);
+    const hzRedBase  = clamp(range * state.hysteresisRedPct, 0.0, 0.14);
+    const hzRedEnter = clamp(hzRedBase * 1.15, 0.0, 0.16);
     const hzRedExit  = hzRedBase;
 
     // Naive zone
@@ -1617,8 +1650,15 @@ window.addEventListener('appinstalled', () => {
 
   els.sHyst.addEventListener('input', () => {
     if(isLocked()) return;
-    state.hysteresisPct = parseFloat(els.sHyst.value);
-    els.tHyst.textContent = state.hysteresisPct.toFixed(2);
+    state.hysteresisGreenPct = parseFloat(els.sHyst.value);
+    els.tHyst.textContent = state.hysteresisGreenPct.toFixed(2);
+    saveSettings();
+  });
+
+  els.sHystRed?.addEventListener('input', () => {
+    if(isLocked()) return;
+    state.hysteresisRedPct = parseFloat(els.sHystRed.value);
+    if(els.tHystRed) els.tHystRed.textContent = state.hysteresisRedPct.toFixed(2);
     saveSettings();
   });
 
