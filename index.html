@@ -450,11 +450,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
   }
 });
 
-window.addEventListener('appinstalled', () => {
-  deferredPrompt = null;
-  const btn = document.getElementById('btnInstall');
-  if(btn) btn.style.display = 'none';
-});
 
 
 (() => {
@@ -1580,6 +1575,17 @@ window.addEventListener('appinstalled', () => {
   // Install button (PWA)
   els.btnInstall.addEventListener('click', doInstall);
   els.btnQSinstall?.addEventListener('click', (e) => { e.preventDefault(); doInstall(); });
+
+  // If the app becomes installed, hide CTAs and stop showing the quick-start nag.
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    try{ setInstallHideUntil(0); }catch(_){ }
+    try{ setQSDismissed(true); }catch(_){ }
+    if(els.btnInstall) els.btnInstall.style.display = 'none';
+    if(els.btnQSinstall) els.btnQSinstall.style.display = 'none';
+    if(els.quickStart) els.quickStart.style.display = 'none';
+    msg('Installed! Quiet Koala will now work offline (when opened from your home screen / app list).');
+  });
 
   els.btnLock.addEventListener('click', async () => {
     if(isLocked()){
