@@ -705,9 +705,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Fractions of the calibrated range used as deadbands.
     // Green hysteresis helps avoid Green↔Amber flicker; Red hysteresis is usually a bit larger.
     hysteresisGreenPct: 0.04,
-    hysteresisRedPct: 0.08,
+    hysteresisRedPct: 0.10,
     zoneHoldMs: 1000,    // ms: candidate zone must persist before switching (helps reduce flicker)
-    redLatchMs: 1500,    // after entering Red, stay Red briefly to avoid Amber↔Red flicker
+    redLatchMs: 1700,    // after entering Red, stay Red briefly to avoid Amber↔Red flicker
 
     // time-based zone debounce
     pendingZone: null,
@@ -797,9 +797,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
     state.alpha = 0.10;
     state.sensitivity = 1.2;
     state.hysteresisGreenPct = 0.04;
-    state.hysteresisRedPct = 0.08;
+    state.hysteresisRedPct = 0.10;
     state.zoneHoldMs = 1000;
-    state.redLatchMs = 1500;
+    state.redLatchMs = 1700;
     state.bubblesEnabled = false;
     state.bubbleMode = 'defaults';
     state.bubbleCustom = '';
