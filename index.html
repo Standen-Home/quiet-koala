@@ -258,7 +258,7 @@
         <div class="help">
           Tip: first click <b>Start</b> to grant mic access. Then calibrate Quiet/Loud once per room setup.
           This uses a <b>smoothed</b> loudness reading for steady classroom noise.
-          <br/>Bonus: a “quiet streak” appears after 10 seconds in the green zone.
+          <br/>Bonus: a “quiet streak” reward appears after you hit the goal time in the green zone.
         </div>
 
         <div class="statGrid">
@@ -287,7 +287,13 @@
           <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
             <div class="toggleRow">
               <input type="checkbox" id="chkStreak" />
-              <label for="chkStreak"><b>Show quiet streak reward</b> (10s in Green)</label>
+              <label for="chkStreak"><b>Show quiet streak reward</b></label>
+            </div>
+
+            <div class="slider" id="rowStreakGoal">
+              <label for="sStreakGoal"><b>Streak goal</b></label>
+              <input id="sStreakGoal" type="range" min="5" max="60" step="1" value="10" />
+              <div><span id="tStreakGoal">10</span>s</div>
             </div>
 
             <div class="toggleRow">
@@ -476,6 +482,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     streakHint: document.getElementById('streakHint'),
 
     chkStreak: document.getElementById('chkStreak'),
+    sStreakGoal: document.getElementById('sStreakGoal'),
+    tStreakGoal: document.getElementById('tStreakGoal'),
     sSmooth: document.getElementById('sSmooth'),
     tSmooth: document.getElementById('tSmooth'),
     sSensitivity: document.getElementById('sSensitivity'),
@@ -721,6 +729,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     // rewards
     streakEnabled: true,
+    streakGoalSec: 10,
 
     // encouragement bubbles
     bubblesEnabled: false,
@@ -760,6 +769,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
       if(typeof s.zoneHoldMs === 'number') state.zoneHoldMs = clamp(s.zoneHoldMs, 0, 10_000);
       if(typeof s.redLatchMs === 'number') state.redLatchMs = clamp(s.redLatchMs, 0, 10_000);
       if(typeof s.streakEnabled === 'boolean') state.streakEnabled = s.streakEnabled;
+      if(typeof s.streakGoalSec === 'number') state.streakGoalSec = clamp(s.streakGoalSec, 5, 60);
       if(typeof s.bubblesEnabled === 'boolean') state.bubblesEnabled = s.bubblesEnabled;
       if(typeof s.bubbleMode === 'string') state.bubbleMode = s.bubbleMode;
       if(typeof s.bubbleCustom === 'string') state.bubbleCustom = s.bubbleCustom;
@@ -778,6 +788,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
       zoneHoldMs: state.zoneHoldMs,
       redLatchMs: state.redLatchMs,
       streakEnabled: !!state.streakEnabled,
+      streakGoalSec: clamp(state.streakGoalSec || 10, 5, 60),
       bubblesEnabled: !!state.bubblesEnabled,
       bubbleMode: state.bubbleMode,
       bubbleCustom: state.bubbleCustom,
@@ -800,6 +811,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     state.hysteresisRedPct = 0.10;
     state.zoneHoldMs = 1000;
     state.redLatchMs = 1700;
+    state.streakEnabled = true;
+    state.streakGoalSec = 10;
     state.bubblesEnabled = false;
     state.bubbleMode = 'defaults';
     state.bubbleCustom = '';
@@ -832,6 +845,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
       if(typeof obj.zoneHoldMs === 'number') s.zoneHoldMs = clamp(obj.zoneHoldMs, 0, 180_000);
       if(typeof obj.redLatchMs === 'number') s.redLatchMs = clamp(obj.redLatchMs, 0, 10_000);
       if(typeof obj.streakEnabled === 'boolean') s.streakEnabled = obj.streakEnabled;
+      if(typeof obj.streakGoalSec === 'number') s.streakGoalSec = clamp(obj.streakGoalSec, 5, 60);
       if(typeof obj.bubblesEnabled === 'boolean') s.bubblesEnabled = obj.bubblesEnabled;
       if(typeof obj.bubbleMode === 'string') s.bubbleMode = obj.bubbleMode;
       if(typeof obj.bubbleCustom === 'string') s.bubbleCustom = obj.bubbleCustom;
@@ -1080,7 +1094,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     // Disable settings controls while locked
     const disable = locked;
-    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.sHystRed, els.sHold, els.sRedLatch, els.chkStreak, els.chkBubbles, els.selBubbleMode, els.taBubbleCustom, els.btnTestBubble, els.charPick, els.btnExport, els.btnImport, els.btnReset, els.btnPackAdmin].forEach(el => {
+    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.sHystRed, els.sHold, els.sRedLatch, els.chkStreak, els.sStreakGoal, els.chkBubbles, els.selBubbleMode, els.taBubbleCustom, els.btnTestBubble, els.charPick, els.btnExport, els.btnImport, els.btnReset, els.btnPackAdmin].forEach(el => {
       if(el) el.disabled = disable;
     });
 
@@ -1113,6 +1127,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
     els.vQuiet.textContent = (state.quiet==null) ? '—' : state.quiet.toFixed(3);
     els.vLoudBase.textContent = (state.loud==null) ? '—' : state.loud.toFixed(3);
     if(els.chkStreak) els.chkStreak.checked = !!state.streakEnabled;
+    if(els.sStreakGoal){
+      const goal = clamp(state.streakGoalSec || 10, 5, 60);
+      els.sStreakGoal.value = String(goal);
+      if(els.tStreakGoal) els.tStreakGoal.textContent = String(goal);
+      const row = document.getElementById('rowStreakGoal');
+      if(row) row.style.display = state.streakEnabled ? '' : 'none';
+    }
     if(els.streakStat) els.streakStat.style.display = state.streakEnabled ? '' : 'none';
     if(els.streakFill) els.streakFill.style.width = '0%';
     if(els.streakHint) els.streakHint.textContent = '—';
@@ -1337,7 +1358,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
       els.vThresh.textContent = `G≤${greenT.toFixed(3)} / R≥${redT.toFixed(3)}`;
     }
 
-    const streakGoalSec = 10;
+    const streakGoalSec = clamp(state.streakGoalSec || 10, 5, 60);
     const streakSec = Math.floor(streakMs / 1000);
 
     if(els.vStreak){
@@ -1614,6 +1635,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
     state.streakEnabled = !!els.chkStreak.checked;
     saveSettings();
     applyUIFromState();
+  });
+
+  els.sStreakGoal?.addEventListener('input', () => {
+    if(isLocked()) { applyUIFromState(); return; }
+    state.streakGoalSec = clamp(parseInt(els.sStreakGoal.value, 10) || 10, 5, 60);
+    if(els.tStreakGoal) els.tStreakGoal.textContent = String(state.streakGoalSec);
+    saveSettings();
   });
 
   els.chkBubbles.addEventListener('change', () => {
