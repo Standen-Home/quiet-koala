@@ -1220,12 +1220,17 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Hysteresis margins: deadbands (as a fraction of calibrated range)
     // Higher = less flicker, but slower to respond.
     // We bias the Amber↔Red boundary more aggressively because flicker there is more noticeable.
-    const hzGreen = clamp(range * state.hysteresisGreenPct, 0.0, 0.06);
+    // NOTE: range can be small (tight calibration), which can make pct-based hysteresis
+    // too tiny to matter. Add a small absolute floor (in RMS units) to reduce flicker.
+    const MIN_HZ_GREEN = 0.002;
+    const MIN_HZ_RED   = 0.0035;
+
+    const hzGreen = clamp(Math.max(range * state.hysteresisGreenPct, MIN_HZ_GREEN), 0.0, 0.06);
 
     // Use separate enter/exit margins for Red:
     // - entering Red from Amber requires a bit more evidence
     // - exiting Red keeps a slightly smaller deadband so Red doesn't "stick" too long
-    const hzRedBase  = clamp(range * state.hysteresisRedPct, 0.0, 0.14);
+    const hzRedBase  = clamp(Math.max(range * state.hysteresisRedPct, MIN_HZ_RED), 0.0, 0.14);
     const hzRedEnter = clamp(hzRedBase * 1.15, 0.0, 0.16);
     const hzRedExit  = hzRedBase;
 
