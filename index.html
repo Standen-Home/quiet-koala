@@ -471,6 +471,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     charPick: document.getElementById('charPick'),
     creatureHost: document.getElementById('creatureHost'),
     statusBadge: document.getElementById('statusBadge'),
+    offlineBadge: document.getElementById('offlineBadge'),
     vLoud: document.getElementById('vLoud'),
     vZone: document.getElementById('vZone'),
     vQuiet: document.getElementById('vQuiet'),
@@ -655,6 +656,34 @@ window.addEventListener('beforeinstallprompt', (e) => {
     const standalone = !!mql?.matches;
     const iosStandalone = !!navigator.standalone; // iOS Safari
     return standalone || iosStandalone;
+  }
+
+  function refreshOfflineBadge(){
+    if(!els.offlineBadge) return;
+
+    const swOk = ('serviceWorker' in navigator);
+    const installed = isInstalled();
+
+    // Keep it simple: this is a classroom signal, not a technical status page.
+    if(installed){
+      els.offlineBadge.textContent = 'Installed: yes (offline)';
+      els.offlineBadge.title = 'Quiet Koala is installed as an app on this device.';
+      els.offlineBadge.style.cursor = 'default';
+      return;
+    }
+
+    if(!swOk){
+      els.offlineBadge.textContent = 'Offline-ready: not supported';
+      els.offlineBadge.title = 'This browser does not support service workers.';
+      els.offlineBadge.style.cursor = 'default';
+      return;
+    }
+
+    els.offlineBadge.textContent = 'Offline-ready: yes (install recommended)';
+    els.offlineBadge.title = isIOS()
+      ? 'On iPad/iPhone: Share → Add to Home Screen'
+      : 'Click Install to add Quiet Koala as an app for easier offline use';
+    els.offlineBadge.style.cursor = 'pointer';
   }
 
   function getQSDismissed(){
@@ -1489,6 +1518,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
     if(e.target === els.quickStart) closeQuickStart();
   });
 
+  // Offline / install badge (opens Quick start for teachers)
+  els.offlineBadge?.addEventListener('click', () => {
+    if(isInstalled()) return;
+    openQuickStart();
+    setTimeout(() => els.btnQSinstall?.focus?.(), 50);
+  });
+
   // Character pack admin (local JSON override)
   function openPackAdmin(){
     if(isLocked()){
@@ -1610,6 +1646,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     if(els.btnInstall) els.btnInstall.style.display = 'none';
     if(els.btnQSinstall) els.btnQSinstall.style.display = 'none';
     if(els.quickStart) els.quickStart.style.display = 'none';
+    refreshOfflineBadge();
     msg('Installed! Quiet Koala will now work offline (when opened from your home screen / app list).');
   });
 
@@ -1759,6 +1796,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
   }
   // Quick start contains its own install CTA (set when opened), but keep it hidden by default.
   if(els.btnQSinstall) els.btnQSinstall.style.display = 'none';
+
+  refreshOfflineBadge();
 
   // Auto-show quick start on first run (unless dismissed / installed)
   if(!isInstalled() && !getQSDismissed()){
