@@ -73,6 +73,12 @@
     .streakBar > .fill{height:100%; width:0%; background:linear-gradient(90deg, rgba(45,212,191,.95), rgba(45,212,191,.55));}
     .streakHint{margin-top:6px; font-size:12px; color:var(--muted); font-weight:650;}
 
+    /* A small celebration when the streak goal is reached */
+    #streakStat.earned{border-color: rgba(45,212,191,.65); box-shadow: 0 0 0 1px rgba(45,212,191,.18) inset, 0 18px 60px rgba(45,212,191,.12);}
+    #streakStat.earned .v{color: var(--good);}
+    @keyframes streakPop{0%{transform:translateY(0) scale(1);} 40%{transform:translateY(-2px) scale(1.02);} 100%{transform:translateY(0) scale(1);}}
+    #streakStat.earned{animation: streakPop 520ms ease-out;}
+
     .slider{display:grid; grid-template-columns: 120px 1fr 60px; gap:10px; align-items:center;}
     input[type=range]{width:100%}
 
@@ -1281,8 +1287,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
     return { zone, color, greenT, redT, hzGreen, hzRed: hzRedEnter };
   }
 
-  // Quiet streak (optional, toggle later)
+  // Quiet streak (optional)
   let streakMs = 0;
+  let streakEarned = false; // per-run: becomes true once we hit the goal, resets when leaving Green
   let lastTickAt = performance.now();
 
   // Red latch: once we enter Red, keep it for a short window to avoid flicker.
@@ -1342,10 +1349,16 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Quiet streak reward (optional)
     if(!state.streakEnabled){
       streakMs = 0;
+      streakEarned = false;
+      if(els.streakStat) els.streakStat.classList.remove('earned');
     }
     if(state.streakEnabled){
       if(zone === 'Green') streakMs += dt;
-      else streakMs = 0;
+      else {
+        streakMs = 0;
+        streakEarned = false;
+        if(els.streakStat) els.streakStat.classList.remove('earned');
+      }
     }
 
     // Map level to a progress (0..1) where 1 = fully out.
@@ -1394,6 +1407,16 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     const streakGoalSec = clamp(state.streakGoalSec || 10, 5, 60);
     const streakSec = Math.floor(streakMs / 1000);
+
+    // Small celebration once per streak run.
+    if(state.streakEnabled && !streakEarned && streakSec >= streakGoalSec){
+      streakEarned = true;
+      if(els.streakStat){
+        els.streakStat.classList.add('earned');
+        // Remove the highlight after a moment (keeps it subtle).
+        setTimeout(() => els.streakStat?.classList.remove('earned'), 1500);
+      }
+    }
 
     if(els.vStreak){
       if(!state.streakEnabled) els.vStreak.textContent = '—';
