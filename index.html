@@ -197,10 +197,15 @@
           <li>(Optional) click <b>Full screen</b> and <b>Lock settings</b> so students can’t change it</li>
         </ol>
 
-        <div style="margin-top:12px; color:var(--muted); font-size:13px;">
+        <div style="margin-top:12px; color:var(--muted); font-size:13px; line-height:1.4;">
           Tip: if you want this to work offline, click <b>Install</b> (Chrome/Edge) once it appears.
           <br/>On iPad/iPhone: <b>Share</b> → <b>Add to Home Screen</b>.
           <br/>Note: microphone access needs <code>https://</code> or <code>http://localhost</code>.
+          <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <span>Local server (quickest):</span>
+            <code id="serverCmd" style="padding:4px 8px; border-radius:10px; border:1px solid var(--stroke); background:rgba(0,0,0,.18); color:var(--text);">python3 -m http.server 8000</code>
+            <button id="btnCopyServer" style="padding:8px 10px; font-size:12px;">Copy</button>
+          </div>
         </div>
 
         <label style="display:flex; gap:10px; align-items:center; margin-top:14px; color:var(--muted); font-size:13px;">
@@ -525,6 +530,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     btnQuickStart: document.getElementById('btnQuickStart'),
     btnInstall: document.getElementById('btnInstall'),
     btnQSinstall: document.getElementById('btnQSinstall'),
+    serverCmd: document.getElementById('serverCmd'),
+    btnCopyServer: document.getElementById('btnCopyServer'),
     settingsPanel: document.getElementById('settingsPanel'),
 
     // character pack admin
@@ -1539,6 +1546,19 @@ window.addEventListener('beforeinstallprompt', (e) => {
   els.btnQSclose.addEventListener('click', closeQuickStart);
   els.quickStart.addEventListener('click', (e) => {
     if(e.target === els.quickStart) closeQuickStart();
+  });
+
+  // Copy local-server command
+  els.btnCopyServer?.addEventListener('click', async () => {
+    const text = els.serverCmd?.textContent?.trim() || 'python3 -m http.server 8000';
+    try{
+      await navigator.clipboard.writeText(text);
+      els.btnCopyServer.textContent = 'Copied';
+      setTimeout(() => { if(els.btnCopyServer) els.btnCopyServer.textContent = 'Copy'; }, 900);
+    }catch(e){
+      // Fallback: prompt-based copy
+      window.prompt('Copy this command:', text);
+    }
   });
 
   // Offline / install badge (opens Quick start for teachers)
