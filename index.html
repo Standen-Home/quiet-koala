@@ -1273,6 +1273,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // - entering Red from Amber requires a bit more evidence
     // - exiting Red keeps a slightly smaller deadband so Red doesn't "stick" too long
     const hzRedBase  = clamp(Math.max(range * state.hysteresisRedPct, MIN_HZ_RED), 0.0, 0.14);
+    // Enter Red needs slightly more evidence than exiting Red.
     const hzRedEnter = clamp(hzRedBase * 1.15, 0.0, 0.16);
     const hzRedExit  = hzRedBase;
 
@@ -1291,7 +1292,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     }
 
     const color = zone === 'Green' ? 'var(--good)' : zone === 'Amber' ? 'var(--warn)' : 'var(--bad)';
-    return { zone, color, greenT, redT, hzGreen, hzRed: hzRedEnter };
+    return { zone, color, greenT, redT, hzGreen, hzRedEnter, hzRedExit };
   }
 
   // Quiet streak (optional)
@@ -1311,7 +1312,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     lastTickAt = now;
 
     const prevZone = state.currentZone;
-    const { zone: candidateZoneRaw, greenT, redT, hzRed } = zoneFromLevel(level, prevZone);
+    const { zone: candidateZoneRaw, greenT, redT, hzRedEnter } = zoneFromLevel(level, prevZone);
 
     // Red latch: if we very recently entered Red, keep it for a short window.
     // (Amber↔Red flicker is the most distracting in classrooms.)
@@ -1335,7 +1336,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
       const holdMs = (candidateZone === 'Red') ? Math.min(1200, state.zoneHoldMs) : state.zoneHoldMs;
 
       // If it blasts well into Red, switch immediately.
-      const redSnap = Math.max(hzRed, 0.02);
+      const redSnap = Math.max(hzRedEnter, 0.02);
       const snapNow = (candidateZone === 'Red') && (level >= (redT + redSnap));
 
       if(state.pendingZone !== candidateZone){
@@ -1409,7 +1410,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     els.vZone.textContent = zone;
     els.zoneDot.style.background = color;
     if(els.vThresh){
-      els.vThresh.textContent = `G≤${greenT.toFixed(3)} / R≥${redT.toFixed(3)}`;
+      // Show thresholds + hysteresis margins so teachers can see why it’s not flickering.
+      // Example: Green stays Green until G+hz; Red enters after R+hz.
+      const { hzGreen, hzRedEnter } = zoneFromLevel(level, zone);
+      els.vThresh.textContent = `G≤${greenT.toFixed(3)} (±${hzGreen.toFixed(3)}) / R≥${redT.toFixed(3)} (+${hzRedEnter.toFixed(3)})`;
     }
 
     const streakGoalSec = clamp(state.streakGoalSec || 10, 5, 60);
