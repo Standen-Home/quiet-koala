@@ -1846,8 +1846,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
   refreshOfflineBadge();
 
-  // Auto-show quick start on first run (unless dismissed / installed)
-  if(!isInstalled() && !getQSDismissed()){
+  // Auto-show quick start on first run (unless dismissed / installed).
+  // Also: once the device is calibrated, don’t keep popping this open on page load.
+  const needsCalibration = (state.quiet == null || state.loud == null);
+  if(!isInstalled() && !getQSDismissed() && needsCalibration){
     setTimeout(openQuickStart, 450);
   }
 
