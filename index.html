@@ -364,6 +364,12 @@
             </div>
 
             <div class="toggleRow" style="justify-content:space-between; flex-wrap:wrap">
+              <div><b>Anti-flicker preset</b></div>
+              <button id="btnAntiFlicker" title="Teacher: reduce Amber/Red flicker" style="padding:8px 10px; font-size:12px;">Apply</button>
+            </div>
+            <div class="help">Sets higher hysteresis + slightly longer zone delay + a longer Red latch. You can still tune sliders after.</div>
+
+            <div class="toggleRow" style="justify-content:space-between; flex-wrap:wrap">
               <div><b>Overlay</b> (floating window)</div>
               <button id="btnOverlay" style="padding:8px 10px; font-size:12px;">Start overlay</button>
             </div>
@@ -536,6 +542,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     // character pack admin
     btnPackAdmin: document.getElementById('btnPackAdmin'),
+    btnAntiFlicker: document.getElementById('btnAntiFlicker'),
     packAdmin: document.getElementById('packAdmin'),
     packJson: document.getElementById('packJson'),
     btnPackClose: document.getElementById('btnPackClose'),
@@ -1136,7 +1143,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     // Disable settings controls while locked
     const disable = locked;
-    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.sHystRed, els.sHold, els.sRedLatch, els.chkStreak, els.sStreakGoal, els.chkBubbles, els.selBubbleMode, els.taBubbleCustom, els.btnTestBubble, els.charPick, els.btnExport, els.btnImport, els.btnReset, els.btnPackAdmin].forEach(el => {
+    [els.btnCalm, els.btnLoud, els.sSmooth, els.sSensitivity, els.sHyst, els.sHystRed, els.sHold, els.sRedLatch, els.chkStreak, els.sStreakGoal, els.chkBubbles, els.selBubbleMode, els.taBubbleCustom, els.btnTestBubble, els.charPick, els.btnExport, els.btnImport, els.btnReset, els.btnPackAdmin, els.btnAntiFlicker].forEach(el => {
       if(el) el.disabled = disable;
     });
 
@@ -1599,6 +1606,16 @@ window.addEventListener('beforeinstallprompt', (e) => {
   }
 
   els.btnPackAdmin?.addEventListener('click', openPackAdmin);
+  els.btnAntiFlicker?.addEventListener('click', () => {
+    // Tuned to reduce Amber↔Red flicker in typical classrooms.
+    state.hysteresisGreenPct = clamp(0.05, 0, 0.20);
+    state.hysteresisRedPct = clamp(0.14, 0, 0.30);
+    state.zoneHoldMs = clamp(1500, 0, 10_000);
+    state.redLatchMs = clamp(2500, 0, 10_000);
+    saveSettings();
+    applyUIFromState();
+    msg('Applied anti-flicker preset (more stable Amber/Red).');
+  });
   els.btnPackClose?.addEventListener('click', closePackAdmin);
   els.packAdmin?.addEventListener('click', (e) => {
     if(e.target === els.packAdmin) closePackAdmin();
