@@ -1272,7 +1272,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // NOTE: range can be small (tight calibration), which can make pct-based hysteresis
     // too tiny to matter. Add a small absolute floor (in RMS units) to reduce flicker.
     const MIN_HZ_GREEN = 0.002;
-    const MIN_HZ_RED   = 0.0035;
+    // A slightly larger floor near the Amber↔Red boundary to prevent rapid toggling
+    // from tiny RMS oscillations around the threshold.
+    const MIN_HZ_RED   = 0.0050;
 
     const hzGreen = clamp(Math.max(range * state.hysteresisGreenPct, MIN_HZ_GREEN), 0.0, 0.06);
 
@@ -1280,9 +1282,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // - entering Red from Amber requires a bit more evidence
     // - exiting Red keeps a slightly smaller deadband so Red doesn't "stick" too long
     const hzRedBase  = clamp(Math.max(range * state.hysteresisRedPct, MIN_HZ_RED), 0.0, 0.14);
-    // Enter Red needs slightly more evidence than exiting Red.
-    const hzRedEnter = clamp(hzRedBase * 1.15, 0.0, 0.16);
-    const hzRedExit  = hzRedBase;
+    // Enter Red needs noticeably more evidence than exiting Red (fewer Amber↔Red flips).
+    const hzRedEnter = clamp(hzRedBase * 1.25, 0.0, 0.18);
+    // Exiting Red: slightly smaller deadband so it can recover once the room quiets.
+    const hzRedExit  = clamp(hzRedBase * 0.90, 0.0, 0.14);
 
     // Naive zone
     let zone = (level <= greenT) ? 'Green' : (level >= redT) ? 'Red' : 'Amber';
