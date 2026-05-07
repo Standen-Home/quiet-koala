@@ -659,6 +659,82 @@ window.addEventListener('beforeinstallprompt', (e) => {
   }
 
   const STORE_KEY = 'quietKoala.v1';
+
+  const PACKS_KEY = STORE_KEY + '.characterPacks';
+
+  function packsMsg(t){
+    if(els.packsMsg) els.packsMsg.textContent = t;
+  }
+
+  function getCustomPacks(){
+    try{
+      const raw = localStorage.getItem(PACKS_KEY);
+      if(!raw) return [];
+      const obj = JSON.parse(raw);
+      if(!obj || !Array.isArray(obj.packs)) return [];
+      return obj.packs.filter(p => p && typeof p.id === 'string' && typeof p.label === 'string' && typeof p.svg === 'string');
+    }catch(e){ return []; }
+  }
+
+  function sanitizeSvgString(svgString, expectedId){
+    // Minimal safety: only accept a single <svg> root.
+    const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
+    const svg = doc.documentElement;
+    if(!svg || svg.nodeName.toLowerCase() !== 'svg') return null;
+    doc.querySelectorAll('script').forEach(s => s.remove());
+
+    svg.setAttribute('class', 'creatureSvg');
+    svg.setAttribute('data-char', expectedId);
+    svg.setAttribute('aria-label', expectedId);
+    svg.setAttribute('id', expectedId);
+    svg.setAttribute('style', 'display:none');
+
+    return svg.outerHTML;
+  }
+
+  function removeExistingCustomSvgs(){
+    document.querySelectorAll('.creatureSvg[data-custom="1"]').forEach(n => n.remove());
+  }
+
+  function applyCustomPacksToDom(){
+    removeExistingCustomSvgs();
+    const wrap = document.querySelector('.creatureWrap');
+    if(!wrap) return;
+
+    const packs = getCustomPacks();
+    packs.forEach(p => {
+      const safe = sanitizeSvgString(p.svg, p.id);
+      if(!safe) return;
+      const temp = document.createElement('div');
+      temp.innerHTML = safe.trim();
+      const svg = temp.firstElementChild;
+      if(!svg) return;
+      svg.setAttribute('data-custom','1');
+      wrap.appendChild(svg);
+    });
+
+    const current = els.charPick?.value || getCharacter();
+    const builtin = [
+      {id:'koala', label:'Koala'},
+      {id:'cat', label:'Cat'},
+      {id:'monster', label:'Monster'},
+    ];
+    const opts = [...builtin, ...packs.map(p => ({id:p.id, label:p.label}))];
+
+    if(els.charPick){
+      els.charPick.innerHTML = '';
+      opts.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.label;
+        els.charPick.appendChild(opt);
+      });
+      const has = opts.some(o => o.id === current);
+      els.charPick.value = has ? current : 'koala';
+      setCharacter(els.charPick.value);
+    }
+  }
+
   const QS_DISMISS_KEY = STORE_KEY + '.quickStart.dismissed';
   const SETTINGS_HINT_SHOWN_KEY = STORE_KEY + '.settingsHintShown';
   const PACK_OVERRIDE_KEY = STORE_KEY + '.characterIndexOverride';
@@ -1852,6 +1928,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
   // Load
   loadSettings();
   applyUIFromState();
+  applyCustomPacksToDom();
   applyLockState();
 
   // Install CTA visibility (will also be shown when beforeinstallprompt fires)
