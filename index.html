@@ -231,6 +231,8 @@
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px; flex-wrap:wrap;">
           <button class="danger" id="btnPackReset" title="Remove local override and return to built-in packs">Reset to built-in</button>
           <button id="btnPackLoadBuiltIn" title="Load the built-in JSON into the editor">Load built-in</button>
+          <button id="btnPackCopy" title="Copy JSON to clipboard">Copy JSON</button>
+          <button id="btnPackValidate" title="Validate JSON (no save)">Validate</button>
           <button class="primary" id="btnPackSave">Save override</button>
         </div>
 
@@ -549,6 +551,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     btnPackSave: document.getElementById('btnPackSave'),
     btnPackReset: document.getElementById('btnPackReset'),
     btnPackLoadBuiltIn: document.getElementById('btnPackLoadBuiltIn'),
+    btnPackCopy: document.getElementById('btnPackCopy'),
+    btnPackValidate: document.getElementById('btnPackValidate'),
   };
 
   let characterIndex = null; // effective index (built-in or overridden)
@@ -1706,6 +1710,28 @@ window.addEventListener('beforeinstallprompt', (e) => {
       return;
     }
     els.packJson.value = JSON.stringify(builtInCharacterIndex, null, 2);
+  });
+
+  els.btnPackCopy?.addEventListener('click', async () => {
+    const text = (els.packJson?.value || '').trim();
+    if(!text){ msg('Nothing to copy.'); return; }
+    try{
+      await navigator.clipboard.writeText(text);
+      msg('Copied pack JSON to clipboard.');
+    }catch(e){
+      window.prompt('Copy this JSON:', text);
+    }
+  });
+
+  els.btnPackValidate?.addEventListener('click', () => {
+    try{
+      const text = els.packJson?.value || '';
+      const parsed = JSON.parse(text);
+      validateCharacterIndex(parsed);
+      msg('Pack JSON looks valid.');
+    }catch(e){
+      alert('Invalid JSON: ' + (e?.message || String(e)));
+    }
   });
 
   els.btnPackReset?.addEventListener('click', async () => {
