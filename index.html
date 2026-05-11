@@ -1363,9 +1363,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // - exiting Red keeps a slightly smaller deadband so Red doesn't "stick" too long
     const hzRedBase  = clamp(Math.max(range * state.hysteresisRedPct, MIN_HZ_RED), 0.0, 0.14);
     // Enter Red needs noticeably more evidence than exiting Red (fewer Amber↔Red flips).
-    const hzRedEnter = clamp(hzRedBase * 1.25, 0.0, 0.18);
-    // Exiting Red: slightly smaller deadband so it can recover once the room quiets.
-    const hzRedExit  = clamp(hzRedBase * 0.90, 0.0, 0.14);
+    // We bias this fairly hard because Amber↔Red flicker is the most distracting.
+    const hzRedEnter = clamp(hzRedBase * 1.50, 0.0, 0.20);
+    // Exiting Red: a bit smaller deadband so it can recover once the room quiets.
+    const hzRedExit  = clamp(hzRedBase * 0.85, 0.0, 0.14);
 
     // Naive zone
     let zone = (level <= greenT) ? 'Green' : (level >= redT) ? 'Red' : 'Amber';
@@ -1502,8 +1503,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     if(els.vThresh){
       // Show thresholds + hysteresis margins so teachers can see why it’s not flickering.
       // Example: Green stays Green until G+hz; Red enters after R+hz.
-      const { hzGreen, hzRedEnter } = zoneFromLevel(level, zone);
-      els.vThresh.textContent = `G≤${greenT.toFixed(3)} (±${hzGreen.toFixed(3)}) / R≥${redT.toFixed(3)} (+${hzRedEnter.toFixed(3)})`;
+      const { hzGreen, hzRedEnter, hzRedExit } = zoneFromLevel(level, zone);
+      els.vThresh.textContent = `G≤${greenT.toFixed(3)} (±${hzGreen.toFixed(3)}) / R≥${redT.toFixed(3)} (+${hzRedEnter.toFixed(3)} / -${hzRedExit.toFixed(3)})`;
     }
 
     const streakGoalSec = clamp(state.streakGoalSec || 10, 5, 60);
