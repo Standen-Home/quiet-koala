@@ -1408,7 +1408,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Red latch: if we very recently entered Red, keep it for a short window.
     // (Amber↔Red flicker is the most distracting in classrooms.)
     let candidateZone = candidateZoneRaw;
-    if(prevZone === 'Red' && performance.now() < redLatchUntil){
+    // Use `now` so the latch decision is consistent with the rest of this tick.
+    if(prevZone === 'Red' && now < redLatchUntil){
       candidateZone = 'Red';
     }
 
