@@ -1959,12 +1959,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
   applyCustomPacksToDom();
   applyLockState();
 
-  // Install CTA visibility (will also be shown when beforeinstallprompt fires)
+  // Install CTA visibility (will also be shown when beforeinstallprompt fires).
+  // We keep the Install button visible whenever install might be useful,
+  // even if the browser hasn’t fired `beforeinstallprompt` yet (clicking will explain).
   if(isInstalled() || isInstallSuppressed()){
     els.btnInstall.style.display = 'none';
   } else {
-    // iOS Safari never fires beforeinstallprompt; keep CTA visible to show instructions.
-    els.btnInstall.style.display = (deferredPrompt || isIOS()) ? 'inline-flex' : 'none';
+    els.btnInstall.style.display = 'inline-flex';
   }
   // Quick start contains its own install CTA (set when opened), but keep it hidden by default.
   if(els.btnQSinstall) els.btnQSinstall.style.display = 'none';
