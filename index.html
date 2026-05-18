@@ -1691,7 +1691,42 @@ window.addEventListener('beforeinstallprompt', (e) => {
   }
 
   els.btnPackAdmin?.addEventListener('click', openPackAdmin);
+
+  const ANTI_FLICKER_BACKUP_KEY = STORE_KEY + '.antiFlickerBackup';
+  function setAntiFlickerButtonLabel(){
+    if(!els.btnAntiFlicker) return;
+    const hasBackup = !!localStorage.getItem(ANTI_FLICKER_BACKUP_KEY);
+    els.btnAntiFlicker.textContent = hasBackup ? 'Undo' : 'Apply';
+    els.btnAntiFlicker.title = hasBackup ? 'Undo anti-flicker preset' : 'Teacher: reduce Amber/Red flicker';
+  }
+
   els.btnAntiFlicker?.addEventListener('click', () => {
+    const backupRaw = localStorage.getItem(ANTI_FLICKER_BACKUP_KEY);
+    if(backupRaw){
+      // Undo: restore previous values.
+      try{
+        const b = JSON.parse(backupRaw);
+        if(typeof b.hysteresisGreenPct === 'number') state.hysteresisGreenPct = clamp(b.hysteresisGreenPct, 0, 0.20);
+        if(typeof b.hysteresisRedPct === 'number') state.hysteresisRedPct = clamp(b.hysteresisRedPct, 0, 0.30);
+        if(typeof b.zoneHoldMs === 'number') state.zoneHoldMs = clamp(b.zoneHoldMs, 0, 10_000);
+        if(typeof b.redLatchMs === 'number') state.redLatchMs = clamp(b.redLatchMs, 0, 10_000);
+      }catch(e){/* ignore */}
+      localStorage.removeItem(ANTI_FLICKER_BACKUP_KEY);
+      saveSettings();
+      applyUIFromState();
+      setAntiFlickerButtonLabel();
+      msg('Undid anti-flicker preset.');
+      return;
+    }
+
+    // Apply: save current values so we can undo.
+    localStorage.setItem(ANTI_FLICKER_BACKUP_KEY, JSON.stringify({
+      hysteresisGreenPct: state.hysteresisGreenPct,
+      hysteresisRedPct: state.hysteresisRedPct,
+      zoneHoldMs: state.zoneHoldMs,
+      redLatchMs: state.redLatchMs,
+    }));
+
     // Tuned to reduce Amber↔Red flicker in typical classrooms.
     state.hysteresisGreenPct = clamp(0.05, 0, 0.20);
     state.hysteresisRedPct = clamp(0.14, 0, 0.30);
@@ -1699,8 +1734,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
     state.redLatchMs = clamp(2500, 0, 10_000);
     saveSettings();
     applyUIFromState();
+    setAntiFlickerButtonLabel();
     msg('Applied anti-flicker preset (more stable Amber/Red).');
   });
+
+  // initialize label
+  setAntiFlickerButtonLabel();
+
   els.btnPackClose?.addEventListener('click', closePackAdmin);
   els.packAdmin?.addEventListener('click', (e) => {
     if(e.target === els.packAdmin) closePackAdmin();
