@@ -1425,7 +1425,15 @@ window.addEventListener('beforeinstallprompt', (e) => {
       state.pendingZone = null;
       state.pendingSince = 0;
     } else {
-      const holdMs = (candidateZone === 'Red') ? Math.min(1200, state.zoneHoldMs) : state.zoneHoldMs;
+      // Debounce switching zones.
+      // - Entering Red: confirm briefly (avoid brief peaks).
+      // - Exiting Red: confirm a bit longer (avoid Amber↔Red flutter right after a loud burst).
+      const enteringRed = (candidateZone === 'Red');
+      const exitingRed  = (prevZone === 'Red' && candidateZone !== 'Red');
+
+      const holdMs = enteringRed ? Math.min(1200, state.zoneHoldMs)
+                   : exitingRed ? Math.max(800, state.zoneHoldMs)
+                   : state.zoneHoldMs;
 
       // If it blasts well into Red, switch immediately.
       const redSnap = Math.max(hzRedEnter, 0.02);
