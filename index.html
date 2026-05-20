@@ -354,6 +354,13 @@
             </div>
 
             <div class="slider">
+              <label for="sRedEnterBias"><b>Red enter bias</b></label>
+              <input id="sRedEnterBias" type="range" min="1.0" max="2.5" step="0.1" value="1.5" />
+              <div><span id="tRedEnterBias">1.5</span>x</div>
+            </div>
+            <div class="help">Higher = harder to enter Red from Amber (reduces Amber↔Red flicker). Lower = more sensitive to Red.</div>
+
+            <div class="slider">
               <label for="sHold"><b>Zone delay</b></label>
               <input id="sHold" type="range" min="0" max="10" step="1" value="1" />
               <div><span id="tHold">1</span>s</div>
@@ -512,6 +519,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     tHyst: document.getElementById('tHyst'),
     sHystRed: document.getElementById('sHystRed'),
     tHystRed: document.getElementById('tHystRed'),
+    sRedEnterBias: document.getElementById('sRedEnterBias'),
+    tRedEnterBias: document.getElementById('tRedEnterBias'),
     sHold: document.getElementById('sHold'),
     tHold: document.getElementById('tHold'),
     sRedLatch: document.getElementById('sRedLatch'),
@@ -843,6 +852,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Green hysteresis helps avoid Green↔Amber flicker; Red hysteresis is usually a bit larger.
     hysteresisGreenPct: 0.04,
     hysteresisRedPct: 0.10,
+    redEnterBias: 1.5,   // multiplier: entering Red from Amber requires more evidence than exiting Red
     zoneHoldMs: 1000,    // ms: candidate zone must persist before switching (helps reduce flicker)
     redLatchMs: 1700,    // after entering Red, stay Red briefly to avoid Amber↔Red flicker
 
@@ -895,6 +905,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
         if(typeof s.hysteresisGreenPct !== 'number') state.hysteresisGreenPct = base;
         if(typeof s.hysteresisRedPct !== 'number') state.hysteresisRedPct = clamp(base * 2.0, 0, 0.30);
       }
+      if(typeof s.redEnterBias === 'number') state.redEnterBias = clamp(s.redEnterBias, 1.0, 2.5);
       if(typeof s.zoneHoldMs === 'number') state.zoneHoldMs = clamp(s.zoneHoldMs, 0, 10_000);
       if(typeof s.redLatchMs === 'number') state.redLatchMs = clamp(s.redLatchMs, 0, 10_000);
       if(typeof s.streakEnabled === 'boolean') state.streakEnabled = s.streakEnabled;
@@ -912,6 +923,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
       loud: state.loud,
       hysteresisGreenPct: state.hysteresisGreenPct,
       hysteresisRedPct: state.hysteresisRedPct,
+      redEnterBias: state.redEnterBias,
       // Keep legacy key for older builds (harmless).
       hysteresisPct: state.hysteresisGreenPct,
       zoneHoldMs: state.zoneHoldMs,
@@ -938,6 +950,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     state.sensitivity = 1.2;
     state.hysteresisGreenPct = 0.04;
     state.hysteresisRedPct = 0.10;
+    state.redEnterBias = 1.5;
     state.zoneHoldMs = 1000;
     state.redLatchMs = 1700;
     state.streakEnabled = true;
@@ -971,6 +984,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
         if(typeof obj.hysteresisGreenPct !== 'number') s.hysteresisGreenPct = base;
         if(typeof obj.hysteresisRedPct !== 'number') s.hysteresisRedPct = clamp(base * 2.0, 0, 0.30);
       }
+      if(typeof obj.redEnterBias === 'number') s.redEnterBias = clamp(obj.redEnterBias, 1.0, 2.5);
       if(typeof obj.zoneHoldMs === 'number') s.zoneHoldMs = clamp(obj.zoneHoldMs, 0, 180_000);
       if(typeof obj.redLatchMs === 'number') s.redLatchMs = clamp(obj.redLatchMs, 0, 10_000);
       if(typeof obj.streakEnabled === 'boolean') s.streakEnabled = obj.streakEnabled;
@@ -1245,6 +1259,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
       els.sHystRed.value = String(state.hysteresisRedPct);
       els.tHystRed.textContent = state.hysteresisRedPct.toFixed(2);
     }
+    if(els.sRedEnterBias){
+      els.sRedEnterBias.value = String(state.redEnterBias);
+      if(els.tRedEnterBias) els.tRedEnterBias.textContent = state.redEnterBias.toFixed(1);
+    }
     if(els.sHold){
       els.sHold.value = String(Math.round(state.zoneHoldMs / 1000));
       els.tHold.textContent = String(Math.round(state.zoneHoldMs / 1000));
@@ -1364,7 +1382,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     const hzRedBase  = clamp(Math.max(range * state.hysteresisRedPct, MIN_HZ_RED), 0.0, 0.14);
     // Enter Red needs noticeably more evidence than exiting Red (fewer Amber↔Red flips).
     // We bias this fairly hard because Amber↔Red flicker is the most distracting.
-    const hzRedEnter = clamp(hzRedBase * 1.50, 0.0, 0.20);
+    const bias = clamp(state.redEnterBias ?? 1.5, 1.0, 2.5);
+    const hzRedEnter = clamp(hzRedBase * bias, 0.0, 0.20);
     // Exiting Red: a bit smaller deadband so it can recover once the room quiets.
     const hzRedExit  = clamp(hzRedBase * 0.85, 0.0, 0.14);
 
@@ -1716,6 +1735,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
         const b = JSON.parse(backupRaw);
         if(typeof b.hysteresisGreenPct === 'number') state.hysteresisGreenPct = clamp(b.hysteresisGreenPct, 0, 0.20);
         if(typeof b.hysteresisRedPct === 'number') state.hysteresisRedPct = clamp(b.hysteresisRedPct, 0, 0.30);
+        if(typeof b.redEnterBias === 'number') state.redEnterBias = clamp(b.redEnterBias, 1.0, 2.5);
         if(typeof b.zoneHoldMs === 'number') state.zoneHoldMs = clamp(b.zoneHoldMs, 0, 10_000);
         if(typeof b.redLatchMs === 'number') state.redLatchMs = clamp(b.redLatchMs, 0, 10_000);
       }catch(e){/* ignore */}
@@ -1731,6 +1751,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     localStorage.setItem(ANTI_FLICKER_BACKUP_KEY, JSON.stringify({
       hysteresisGreenPct: state.hysteresisGreenPct,
       hysteresisRedPct: state.hysteresisRedPct,
+      redEnterBias: state.redEnterBias,
       zoneHoldMs: state.zoneHoldMs,
       redLatchMs: state.redLatchMs,
     }));
@@ -1738,6 +1759,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Tuned to reduce Amber↔Red flicker in typical classrooms.
     state.hysteresisGreenPct = clamp(0.05, 0, 0.20);
     state.hysteresisRedPct = clamp(0.14, 0, 0.30);
+    state.redEnterBias = clamp(1.8, 1.0, 2.5);
     state.zoneHoldMs = clamp(1500, 0, 10_000);
     state.redLatchMs = clamp(2500, 0, 10_000);
     saveSettings();
@@ -1966,6 +1988,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
     if(isLocked()) return;
     state.hysteresisRedPct = parseFloat(els.sHystRed.value);
     if(els.tHystRed) els.tHystRed.textContent = state.hysteresisRedPct.toFixed(2);
+    saveSettings();
+  });
+
+  els.sRedEnterBias?.addEventListener('input', () => {
+    if(isLocked()) return;
+    state.redEnterBias = parseFloat(els.sRedEnterBias.value);
+    if(els.tRedEnterBias) els.tRedEnterBias.textContent = state.redEnterBias.toFixed(1);
     saveSettings();
   });
 
