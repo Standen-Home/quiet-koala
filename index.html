@@ -1372,7 +1372,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     const MIN_HZ_GREEN = 0.002;
     // A slightly larger floor near the Amber↔Red boundary to prevent rapid toggling
     // from tiny RMS oscillations around the threshold.
-    const MIN_HZ_RED   = 0.0050;
+    const MIN_HZ_RED   = 0.0065;
 
     const hzGreen = clamp(Math.max(range * state.hysteresisGreenPct, MIN_HZ_GREEN), 0.0, 0.06);
 
@@ -1383,7 +1383,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Enter Red needs noticeably more evidence than exiting Red (fewer Amber↔Red flips).
     // We bias this fairly hard because Amber↔Red flicker is the most distracting.
     const bias = clamp(state.redEnterBias ?? 1.5, 1.0, 2.5);
-    const hzRedEnter = clamp(hzRedBase * bias, 0.0, 0.20);
+    const hzRedEnter = clamp(hzRedBase * bias, 0.0, 0.22);
     // Exiting Red: a bit smaller deadband so it can recover once the room quiets.
     const hzRedExit  = clamp(hzRedBase * 0.85, 0.0, 0.14);
 
