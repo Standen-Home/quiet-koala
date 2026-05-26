@@ -859,6 +859,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // time-based zone debounce
     pendingZone: null,
     pendingSince: 0,
+    lastZoneSwitchAt: 0,
 
     // derived thresholds (3 zones)
     // Fraction of the calibrated range above QUIET.
@@ -1440,6 +1441,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // caused by brief peaks (e.g. a single clap).
     if(prevZone == null){
       state.currentZone = candidateZone;
+      state.lastZoneSwitchAt = now;
       if(candidateZone === 'Red') redLatchUntil = now + state.redLatchMs;
       state.pendingZone = null;
       state.pendingSince = 0;
@@ -1447,6 +1449,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
       state.pendingZone = null;
       state.pendingSince = 0;
     } else {
+      // Cooldown after a switch: prevents rapid flip-flop when hovering near a boundary.
+      // (This stacks with hysteresis/hold/latch; it's cheap and makes the UI feel calmer.)
+      const cooldownMs = Math.round(clamp(state.zoneHoldMs, 500, 1500) * 0.12); // ~60–180ms
+      if(state.lastZoneSwitchAt && (now - state.lastZoneSwitchAt) < cooldownMs){
+        candidateZone = prevZone;
+      }
+
       // Debounce switching zones.
       // - Entering Red: confirm briefly (avoid brief peaks).
       // - Exiting Red: confirm a bit longer (avoid Amber↔Red flutter right after a loud burst).
@@ -1467,6 +1476,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
       }
       if(snapNow || (now - state.pendingSince) >= holdMs){
         state.currentZone = candidateZone;
+        state.lastZoneSwitchAt = now;
         if(candidateZone === 'Red') redLatchUntil = now + state.redLatchMs;
         state.pendingZone = null;
         state.pendingSince = 0;
