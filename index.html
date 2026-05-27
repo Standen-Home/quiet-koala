@@ -1486,6 +1486,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     const zone = state.currentZone;
     const color = zone === 'Green' ? 'var(--good)' : zone === 'Amber' ? 'var(--warn)' : 'var(--bad)';
 
+    // If we're holding a new candidate zone (debounce), expose it subtly so teachers understand
+    // why the label doesn't immediately flip on small spikes.
+    const pending = (state.pendingZone && state.pendingZone !== zone) ? state.pendingZone : null;
+
     // Quiet streak reward (optional)
     if(!state.streakEnabled){
       streakMs = 0;
@@ -1585,10 +1589,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
     }
 
     const streakText = (state.streakEnabled && streakSec >= streakGoalSec) ? ` • quiet streak ${streakSec}s` : '';
+    const pendingText = pending ? ` (switching to ${pending}…)` : '';
 
-    els.zoneText.textContent = zone === 'Green' ? `Nice and quiet — your friend is happy${streakText}` :
-                               zone === 'Amber' ? 'Getting loud — your friend is cautious' :
-                               'Too loud — your friend is hiding';
+    els.zoneText.textContent = zone === 'Green' ? `Nice and quiet — your friend is happy${streakText}${pendingText}` :
+                               zone === 'Amber' ? `Getting loud — your friend is cautious${pendingText}` :
+                               `Too loud — your friend is hiding${pendingText}`;
 
     // Meter: scale based on calibrated range.
     const q = (state.quiet==null) ? 0.03 : state.quiet;
