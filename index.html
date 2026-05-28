@@ -1375,7 +1375,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // from tiny RMS oscillations around the threshold (common with tight calibration).
     // Entering Red is more disruptive than leaving it, so we bias the floors a bit.
     const MIN_HZ_RED_ENTER = 0.0075;
-    const MIN_HZ_RED_EXIT  = 0.0060;
+    // Slightly higher exit floor to reduce Amber↔Red flutter when the room hovers near Red.
+    const MIN_HZ_RED_EXIT  = 0.0075;
 
     const hzGreen = clamp(Math.max(range * state.hysteresisGreenPct, MIN_HZ_GREEN), 0.0, 0.06);
 
@@ -1388,8 +1389,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // We bias this fairly hard because Amber↔Red flicker is the most distracting.
     const bias = clamp(state.redEnterBias ?? 1.5, 1.0, 2.5);
     const hzRedEnter = clamp(hzRedBaseEnter * bias, 0.0, 0.22);
-    // Exiting Red: a bit smaller deadband so it can recover once the room quiets.
-    const hzRedExit  = clamp(hzRedBaseExit * 0.85, 0.0, 0.14);
+    // Exiting Red: keep a meaningful deadband so we don't chatter right at the boundary.
+    // (Recovery still happens quickly thanks to zoneHoldMs + latch tuning.)
+    const hzRedExit  = clamp(hzRedBaseExit, 0.0, 0.14);
 
     // Naive zone
     let zone = (level <= greenT) ? 'Green' : (level >= redT) ? 'Red' : 'Amber';
