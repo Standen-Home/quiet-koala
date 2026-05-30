@@ -1376,7 +1376,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Entering Red is more disruptive than leaving it, so we bias the floors a bit.
     const MIN_HZ_RED_ENTER = 0.0075;
     // Slightly higher exit floor to reduce Amber↔Red flutter when the room hovers near Red.
-    const MIN_HZ_RED_EXIT  = 0.0075;
+    // (Bigger exit hysteresis keeps Red from chattering off/on when hovering near the threshold.)
+    const MIN_HZ_RED_EXIT  = 0.0100;
 
     const hzGreen = clamp(Math.max(range * state.hysteresisGreenPct, MIN_HZ_GREEN), 0.0, 0.06);
 
