@@ -50,7 +50,8 @@ python3 -m http.server 8000
 6. Optional:
    - Adjust Settings (zone delay, smoothing, sensitivity, etc.)
    - Click **Lock settings** (teacher PIN) so students can’t change thresholds
-   - **Overlay mode**: in Settings, click **Start overlay** to open a floating Picture-in-Picture window (useful on Mac/Windows)
+   - **Browser overlay fallback**: in Settings, click **Start PiP overlay** to open a Picture-in-Picture window when supported
+   - **Real desktop overlay**: run the Electron wrapper below for a transparent always-on-top pet window
 
 Settings are stored per-device using `localStorage`.
 A “quiet streak” appears after 10 seconds continuously in the green zone.
@@ -79,6 +80,30 @@ Recommended primary product:
 
 Optional secondary product:
 - Desktop wrappers (Electron/Tauri) for schools that want an installer (Windows/Mac).
+
+## Desktop overlay mode
+
+Quiet Koala now has a real desktop wrapper for the floating pet overlay. The browser page is still useful for setup, but the desktop wrapper creates a separate transparent, always-on-top pet window.
+
+### Run it
+
+```bash
+cd /home/nui/projects/quiet-koala
+npm install
+./start-desktop-overlay.sh
+```
+
+This opens two windows:
+
+- **Quiet Koala Overlay** — transparent always-on-top pet window. Drag it to move it.
+- **Quiet Koala Settings** — normal controls/calibration/settings window.
+
+Shortcuts:
+
+- `Ctrl+Shift+X` / `Cmd+Shift+X`: toggle click-through for the pet overlay.
+- `Ctrl+Shift+S` / `Cmd+Shift+S`: show the settings window.
+
+On Linux the npm script runs Electron with `--no-sandbox`, which avoids the common unprivileged `chrome-sandbox` owner/mode failure in local dev environments. The desktop wrapper serves the app from a secure `quiet-koala://app/` protocol instead of `file://`, so packaged SVGs/JSON and microphone permissions work correctly.
 
 ## Licensing / business
 This repo currently has **no license set**. Before selling, decide:

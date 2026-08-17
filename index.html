@@ -176,9 +176,48 @@
       main{grid-template-columns:1fr;}
       .creatureWrap{width:min(520px, 92%); height:min(520px, 55vh);} 
     }
+
+    /* Real desktop overlay mode (Electron/Tauri-style wrapper).
+       The normal browser app keeps controls; ?overlay=1 becomes a transparent always-on-top pet window. */
+    body.overlay-mode{
+      background:transparent !important;
+      overflow:hidden;
+      -webkit-app-region: drag;
+    }
+    body.overlay-mode .wrap{display:block; height:100vh; background:transparent;}
+    body.overlay-mode header,
+    body.overlay-mode .controls,
+    body.overlay-mode footer,
+    body.overlay-mode .meter,
+    body.overlay-mode .bubble,
+    body.overlay-mode .zoneLabel{display:none !important;}
+    body.overlay-mode main{display:block; height:100vh; padding:0;}
+    body.overlay-mode .stage{
+      height:100vh;
+      border:0;
+      border-radius:0;
+      padding:0;
+      background:transparent;
+      box-shadow:none;
+      overflow:visible;
+    }
+    body.overlay-mode .stageInner{inset:0; display:grid; place-items:center;}
+    body.overlay-mode .creatureWrap{width:100vw; height:100vh; max-width:none; max-height:none;}
+    body.overlay-mode #tree{right:4%; width:46%;}
+    body.overlay-mode #creatureHost{right:-10%; width:62%;}
+    body.overlay-mode *{user-select:none;}
+    body.overlay-mode button,
+    body.overlay-mode input,
+    body.overlay-mode select,
+    body.overlay-mode textarea,
+    body.overlay-mode summary{ -webkit-app-region: no-drag; }
   </style>
 </head>
 <body>
+  <script>
+    window.QUIET_KOALA_OVERLAY_MODE = new URLSearchParams(location.search).get('overlay') === '1';
+    if (window.QUIET_KOALA_OVERLAY_MODE) document.body.classList.add('overlay-mode');
+  </script>
   <div class="wrap">
     <div id="quickStart" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:50;">
       <div style="max-width:720px; margin:6vh auto; background:rgba(18,26,51,.92); border:1px solid var(--stroke); border-radius:16px; padding:18px; box-shadow: 0 20px 60px rgba(0,0,0,.5);">
@@ -379,10 +418,16 @@
             <div class="help">Sets higher hysteresis + slightly longer zone delay + a longer Red latch. You can still tune sliders after.</div>
 
             <div class="toggleRow" style="justify-content:space-between; flex-wrap:wrap">
-              <div><b>Overlay</b> (floating window)</div>
-              <button id="btnOverlay" style="padding:8px 10px; font-size:12px;">Start overlay</button>
+              <div><b>Browser overlay</b> (Picture-in-Picture fallback)</div>
+              <button id="btnOverlay" style="padding:8px 10px; font-size:12px;">Start PiP overlay</button>
             </div>
-            <div class="help">Overlay uses <b>Picture-in-Picture</b> when available (best on Mac/Windows Chrome/Edge). Stored settings are <b>local only</b> (localStorage).</div>
+            <div class="help">Browser fallback uses <b>Picture-in-Picture</b> when available. For a real always-on-top transparent desktop pet, launch with <code>./start-desktop-overlay.sh</code> or <code>npm run desktop</code>.</div>
+
+            <div class="toggleRow" id="desktopOverlayRow" style="display:none; justify-content:space-between; flex-wrap:wrap">
+              <div><b>Desktop overlay clicks</b></div>
+              <button id="btnDesktopClickThrough" style="padding:8px 10px; font-size:12px;">Enable click-through</button>
+            </div>
+            <div class="help" id="desktopOverlayHelp" style="display:none">Desktop overlay is always-on-top. Drag the pet window to move it. Shortcut: <code>Ctrl/Cmd+Shift+X</code> toggles click-through; <code>Ctrl/Cmd+Shift+S</code> shows settings.</div>
           </div>
         </details>
 
@@ -538,6 +583,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
     taBubbleCustom: document.getElementById('taBubbleCustom'),
     btnTestBubble: document.getElementById('btnTestBubble'),
     btnOverlay: document.getElementById('btnOverlay'),
+    desktopOverlayRow: document.getElementById('desktopOverlayRow'),
+    desktopOverlayHelp: document.getElementById('desktopOverlayHelp'),
+    btnDesktopClickThrough: document.getElementById('btnDesktopClickThrough'),
     pipCanvas: document.getElementById('pipCanvas'),
     pipVideo: document.getElementById('pipVideo'),
 
@@ -576,9 +624,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     return localStorage.getItem(STORE_KEY + '.character') || 'pack-default:koala';
   }
 
-  function setCharacter(key){
+  function setCharacter(key, notify = true){
     // key format: "packId:charId"
     localStorage.setItem(STORE_KEY + '.character', key);
+    if(notify) window.quietKoalaDesktop?.notifyStateChanged?.([STORE_KEY + '.character']);
     if(!characterIndex) return;
 
     const [packId, charId] = key.split(':');
@@ -887,6 +936,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
   let bubbleVisibleUntil = 0;
   let nextBubbleAt = 0;
+  let audioSampleBuffer = null;
+  let pipCanvasStream = null;
+  let lastDesktopLiveStateSentAt = 0;
 
 
   function loadSettings(){
@@ -936,6 +988,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
       bubbleCustom: state.bubbleCustom,
     };
     localStorage.setItem(STORE_KEY, JSON.stringify(s));
+    window.quietKoalaDesktop?.notifyStateChanged?.([STORE_KEY]);
   }
   function resetSettings(){
     if(isLocked()){
@@ -1168,9 +1221,16 @@ window.addEventListener('beforeinstallprompt', (e) => {
     }
     if(!els.pipCanvas || !els.pipVideo) return;
 
-    // Create a video stream from canvas
-    const stream = els.pipCanvas.captureStream(30);
-    els.pipVideo.srcObject = stream;
+    // Avoid leaking captured canvas streams if the overlay is started repeatedly.
+    if(pipCanvasStream){
+      for(const track of pipCanvasStream.getTracks()) track.stop();
+      pipCanvasStream = null;
+    }
+
+    // Create a video stream from canvas. 10fps is plenty for a calm classroom HUD and
+    // uses less browser memory/CPU than a full 30fps stream.
+    pipCanvasStream = els.pipCanvas.captureStream(10);
+    els.pipVideo.srcObject = pipCanvasStream;
     await els.pipVideo.play();
 
     // Start PiP
@@ -1184,6 +1244,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
         await document.exitPictureInPicture();
       }
     }catch(_){/* ignore */}
+    if(pipCanvasStream){
+      for(const track of pipCanvasStream.getTracks()) track.stop();
+      pipCanvasStream = null;
+    }
+    if(els.pipVideo) els.pipVideo.srcObject = null;
     if(els.btnOverlay) els.btnOverlay.textContent = 'Start overlay';
   }
 
@@ -1296,10 +1361,17 @@ window.addEventListener('beforeinstallprompt', (e) => {
       els.btnOverlay.disabled = !ok;
       els.btnOverlay.title = ok ? 'Start a floating overlay window (Picture-in-Picture)' : 'Overlay not supported in this browser. Try Chrome/Edge on Mac/Windows.';
       if(!ok){
-        els.btnOverlay.textContent = 'Overlay unsupported';
+        els.btnOverlay.textContent = 'PiP overlay unsupported';
       } else {
-        els.btnOverlay.textContent = document.pictureInPictureElement ? 'Stop overlay' : 'Start overlay';
+        els.btnOverlay.textContent = document.pictureInPictureElement ? 'Stop PiP overlay' : 'Start PiP overlay';
       }
+    }
+
+    const desktopApi = window.quietKoalaDesktop;
+    if(els.desktopOverlayRow && els.desktopOverlayHelp){
+      const desktop = !!desktopApi;
+      els.desktopOverlayRow.style.display = desktop ? 'flex' : 'none';
+      els.desktopOverlayHelp.style.display = desktop ? 'block' : 'none';
     }
   }
 
@@ -1336,11 +1408,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
   function computeRms(){
     const analyser = state.analyser;
-    const buf = new Float32Array(analyser.fftSize);
-    analyser.getFloatTimeDomainData(buf);
+    if(!audioSampleBuffer || audioSampleBuffer.length !== analyser.fftSize){
+      audioSampleBuffer = new Float32Array(analyser.fftSize);
+    }
+    analyser.getFloatTimeDomainData(audioSampleBuffer);
     let sum = 0;
-    for(let i=0;i<buf.length;i++) sum += buf[i]*buf[i];
-    const rms = Math.sqrt(sum / buf.length);
+    for(let i=0;i<audioSampleBuffer.length;i++) sum += audioSampleBuffer[i]*audioSampleBuffer[i];
+    const rms = Math.sqrt(sum / audioSampleBuffer.length);
     // Apply sensitivity multiplier and clamp to a reasonable range.
     return clamp(rms * state.sensitivity, 0, 1);
   }
@@ -1422,6 +1496,33 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
   // Bubble timers
   scheduleNextBubble(5_000);
+
+  function sendDesktopLiveState(snapshot){
+    if(window.QUIET_KOALA_OVERLAY_MODE) return;
+    // The mic loop runs every animation frame. Sending IPC every frame can make
+    // Electron/Chromium memory climb during long classroom sessions; 10fps is
+    // visually smooth enough for the overlay pet.
+    const now = performance.now();
+    if((now - lastDesktopLiveStateSentAt) < 100) return;
+    lastDesktopLiveStateSentAt = now;
+    window.quietKoalaDesktop?.sendLiveState?.(snapshot);
+  }
+
+  function applyMirroredLiveState(snapshot){
+    if(!window.QUIET_KOALA_OVERLAY_MODE || !snapshot || typeof snapshot !== 'object') return;
+    const x = Number.isFinite(snapshot.x) ? snapshot.x : 0;
+    if(els.creatureHost){
+      els.creatureHost.style.transform = `translateY(-50%) translateX(${x}%)`;
+    }
+    const creature = currentCreature();
+    const zone = snapshot.zone;
+    const happy = creature?.querySelector('.faceHappy');
+    const worried = creature?.querySelector('.faceWorried');
+    if(happy && worried){
+      happy.style.opacity = (zone === 'Red') ? 0 : 1;
+      worried.style.opacity = (zone === 'Red') ? 1 : 0;
+    }
+  }
 
   function updateCreature(level){
     const now = performance.now();
@@ -1604,6 +1705,17 @@ window.addEventListener('beforeinstallprompt', (e) => {
     const range = Math.max(0.05, (Math.max(q,l) - Math.min(q,l)));
     const pct = clamp(((level - Math.min(q,l)) / range) * 100, 0, 120);
     els.meterFill.style.width = pct.toFixed(1) + '%';
+
+    sendDesktopLiveState({
+      level,
+      zone,
+      x,
+      progress: prog,
+      quiet: state.quiet,
+      loud: state.loud,
+      character: getCharacter(),
+      at: Date.now()
+    });
   }
 
   function loop(){
@@ -1654,6 +1766,51 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     msg(`Saved ${kind} level = ${median.toFixed(3)}. ${state.quiet!=null && state.loud!=null ? 'You are calibrated.' : 'Now do the other calibration.'}`);
   }
+
+  async function syncFromStoredDesktopState(keys = [STORE_KEY, STORE_KEY + '.character']){
+    if(keys.includes(STORE_KEY)){
+      loadSettings();
+      applyUIFromState();
+    }
+    if(keys.includes(STORE_KEY + '.character')){
+      try { await loadCharacterIndex(); setCharacter(getCharacter(), false); } catch(e) { console.warn(e); }
+    }
+  }
+
+  // Keep the real desktop overlay and the settings window in sync.
+  window.addEventListener('storage', async (event) => {
+    if(event.key === STORE_KEY || event.key === STORE_KEY + '.character'){
+      await syncFromStoredDesktopState([event.key]);
+    }
+  });
+  window.quietKoalaDesktop?.onStateChanged?.((keys) => {
+    syncFromStoredDesktopState(keys);
+  });
+  window.quietKoalaDesktop?.onLiveState?.((snapshot) => {
+    applyMirroredLiveState(snapshot);
+  });
+
+  // Desktop overlay mode: mirror the settings window's live state, but hide settings chrome.
+  if(window.QUIET_KOALA_OVERLAY_MODE){
+    document.title = 'Quiet Koala Overlay';
+  }
+
+  async function refreshDesktopClickThroughButton(){
+    if(!window.quietKoalaDesktop || !els.btnDesktopClickThrough) return;
+    const enabled = await window.quietKoalaDesktop.getClickThrough();
+    els.btnDesktopClickThrough.textContent = enabled ? 'Disable click-through' : 'Enable click-through';
+  }
+
+  els.btnDesktopClickThrough?.addEventListener('click', async () => {
+    if(!window.quietKoalaDesktop) return;
+    const current = await window.quietKoalaDesktop.getClickThrough();
+    await window.quietKoalaDesktop.setClickThrough(!current);
+    await refreshDesktopClickThroughButton();
+  });
+  window.quietKoalaDesktop?.onClickThroughChanged?.((enabled) => {
+    if(els.btnDesktopClickThrough) els.btnDesktopClickThrough.textContent = enabled ? 'Disable click-through' : 'Enable click-through';
+  });
+  refreshDesktopClickThroughButton();
 
   // UI hooks
   els.btnStart.addEventListener('click', start);

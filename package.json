@@ -1,0 +1,16 @@
+{
+  "name": "quiet-koala",
+  "version": "0.2.0",
+  "description": "Quiet Koala classroom noise buddy with a real desktop overlay window.",
+  "main": "desktop/main.cjs",
+  "private": true,
+  "scripts": {
+    "start": "electron --no-sandbox .",
+    "desktop": "electron --no-sandbox .",
+    "serve": "python3 -m http.server 8000",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "electron": "^37.2.6"
+  }
+}
